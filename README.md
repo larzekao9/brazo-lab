@@ -3,7 +3,7 @@
 Plataforma abierta para **aprender, practicar y desarrollar** con el brazo Dobot CR5AS del laboratorio **sin tener el brazo delante**. Lo que
 funciona en el simulador funciona igual en el brazo real: solo cambia `destino`.
 
-> Estado: **fase 5** (librería `Brazo` + simulador + API HTTP + panel web + rutinas, consola de scripts y asistentes de calibración; el ajedrez ya corre sobre la plataforma en el simulador) y la celda del laboratorio importada de la calibración real del ajedrez. Guía: `docs/laboratorio.md`. Ver `docs/bitacora.md` y el `PLAN_BRAZO_BASE.md` del repositorio del ajedrez.
+> Estado: **fase 5** (librería `Brazo` + simulador + API HTTP + panel web + rutinas, consola de scripts y asistentes de calibración) y la celda del laboratorio importada de la calibración real del ajedrez. Guía: `docs/laboratorio.md`. Ver `docs/bitacora.md` y el `PLAN_BRAZO_BASE.md` del repositorio del ajedrez.
 
 ## Capturas
 
@@ -100,7 +100,6 @@ internet, así que necesita conexión la primera vez. Ver `docs/api_http.md` y `
 | `herramientas/` | Scripts de laboratorio: conexión de solo lectura, verificar el modelo, ensayar y mover una pieza |
 | `brazo_base/servidor/` | API FastAPI, telemetría por WebSocket y panel web |
 | `brazo_base/rutinas/`, `scripts/`, `calibracion/` | Rutinas, consola de scripts (proceso aparte + `BrazoRemoto`) y asistentes de calibración |
-| `ejemplos/ajedrez/` | Cómo usa la plataforma el ajedrez (primera aplicación) |
 | `ejemplos/` | Scripts 01 a 05, la página 06 y los ejemplos 07 (rutinas) y 08 (calibrar una superficie) |
 
 ## Limitaciones conocidas del simulador
