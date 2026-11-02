@@ -15,7 +15,7 @@ from brazo_base.celda.modelo import Celda, Objeto, Superficie
 from brazo_base.errores import CeldaInvalida
 
 CAMPOS_OBJETO = {f.name for f in fields(Objeto)}
-CAMPOS_RAIZ = {"version", "nombre", "controlador", "herramienta", "seguridad", "mesa", "puntos", "superficies", "lugares", "objetos", "zonas_prohibidas"}
+CAMPOS_RAIZ = {"version", "nombre", "controlador", "herramienta", "seguridad", "mesa", "puntos", "superficies", "lugares", "objetos", "zonas_prohibidas", "modo_pose", "orientacion", "agarre", "perfiles"}
 VERSION_ACTUAL = 1
 
 
@@ -63,9 +63,19 @@ def celda_desde_dict(datos: dict, ruta: str | None = None) -> Celda:
     celda.puntos = dict(datos.get("puntos", {}))
     celda.lugares = dict(datos.get("lugares", {}))
     celda.zonas_prohibidas = list(datos.get("zonas_prohibidas", []))
+    celda.modo_pose = str(datos.get("modo_pose", "tcp"))
+    if celda.modo_pose not in ("tcp", "brida"):
+        raise CeldaInvalida("modo_pose tiene que ser «tcp» o «brida»")
+    if datos.get("orientacion") is not None:
+        celda.orientacion = _numeros(datos["orientacion"], 3, "orientacion (rx, ry, rz)")
+    if celda.modo_pose == "brida" and celda.orientacion is None:
+        raise CeldaInvalida("En modo «brida» hace falta la orientacion [rx, ry, rz] de la herramienta (tomala de GetPose() con la pinza apuntando a la mesa)")
+    celda.agarre = dict(datos.get("agarre", {}))
+    celda.perfiles = {n: dict(p) for n, p in datos.get("perfiles", {}).items()}
     for nombre, s in datos.get("superficies", {}).items():
         try:
-            celda.superficies[nombre] = Superficie(nombre, {k: tuple(float(x) for x in v[:2]) for k, v in s["esquinas"].items()}, float(s["z_mm"]), int(s["filas"]), int(s["columnas"]))
+            celda.superficies[nombre] = Superficie(nombre, {k: tuple(float(x) for x in v[:2]) for k, v in s["esquinas"].items()}, float(s["z_mm"]), int(s["filas"]), int(s["columnas"]),
+                                                   tuple(float(v) for v in s.get("corrimiento_mm", (0.0, 0.0))), float(s.get("borde_mm", 0.0)))
         except (KeyError, TypeError, ValueError) as error:
             raise CeldaInvalida(f"Superficie «{nombre}»: faltan o están mal los datos (esquinas, z_mm, filas, columnas): {error}") from error
     for d in datos.get("objetos", []):
@@ -112,10 +122,14 @@ def celda_a_dict(celda: Celda) -> dict:
         "seguridad": celda.seguridad,
         "mesa": celda.mesa,
         "puntos": celda.puntos,
-        "superficies": {n: {"esquinas": {k: list(v) for k, v in s.esquinas.items()}, "z_mm": s.z_mm, "filas": s.filas, "columnas": s.columnas} for n, s in celda.superficies.items()},
+        "superficies": {n: {"esquinas": {k: list(v) for k, v in s.esquinas.items()}, "z_mm": s.z_mm, "filas": s.filas, "columnas": s.columnas, "corrimiento_mm": list(s.corrimiento_mm), "borde_mm": s.borde_mm} for n, s in celda.superficies.items()},
         "lugares": celda.lugares,
         "objetos": [{k: (list(v) if isinstance(v, tuple) else v) for k, v in vars(o).items() if v is not None} for o in celda.objetos.values()],
         "zonas_prohibidas": celda.zonas_prohibidas,
+        "modo_pose": celda.modo_pose,
+        "orientacion": list(celda.orientacion) if celda.orientacion else None,
+        "agarre": celda.agarre,
+        "perfiles": celda.perfiles,
     }
 
 

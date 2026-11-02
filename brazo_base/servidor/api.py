@@ -36,7 +36,10 @@ class MoverPedido(BaseModel):
     y: float | None = None
     z: float | None = None
     rz: float | None = None
-    lineal: bool = True
+    dx: float | None = None
+    dy: float | None = None
+    dz: float | None = None
+    lineal: bool | None = None
     punto: str | None = None
     angulos: list[float] | None = Field(None, min_length=6, max_length=6)
 
@@ -141,8 +144,13 @@ def crear_app(servicio: ServicioBrazo | None = None) -> FastAPI:
             return svc.lanzar("mover_articulaciones", lambda b: b.mover_articulaciones(p.angulos))
         if p.punto is not None:
             return svc.lanzar(f"ir_a {p.punto}", lambda b: b.ir_a(p.punto))
+        if any(v is not None for v in (p.dx, p.dy, p.dz)):  # relativo: la herramienta conserva su orientación
+            dx, dy, dz = p.dx or 0.0, p.dy or 0.0, p.dz or 0.0
+            ax, ay, az, *_ = brazo.pose()
+            _exigir_ok(brazo.ensayo("mover", x=ax + dx, y=ay + dy, z=az + dz))
+            return svc.lanzar("mover_relativo", lambda b: b.mover_relativo(dx, dy, dz))
         if p.x is None and p.y is None and p.z is None:
-            raise ValueError("Mandá x, y, z (mm), un «punto» con nombre o «angulos»")
+            raise ValueError("Mandá x, y, z (mm), dx, dy, dz (relativo), un «punto» con nombre o «angulos»")
         _exigir_ok(brazo.ensayo("mover", x=p.x, y=p.y, z=p.z))
         return svc.lanzar("mover_a", lambda b: b.mover_a(p.x, p.y, p.z, p.rz, p.lineal))
 

@@ -96,8 +96,8 @@ def test_parar_corta_la_tarea():
         assert c.post("/parar").status_code == 200
         assert esperar_tarea(c, 10)["estado"] == "cancelada"
         assert c.get("/estado").json()["pose"][1] > -645
-        assert c.post("/mover", json={"x": 0, "y": -450, "z": 150}).status_code == 202  # vuelve a andar
-        esperar_tarea(c, 30)
+        assert c.post("/mover", json={"dz": 5}).status_code == 202  # vuelve a andar (corto: a esta velocidad uno largo tarda mucho)
+        assert esperar_tarea(c, 30)["estado"] == "terminada"
     servicio.desconectar()
 
 
@@ -151,3 +151,12 @@ def test_cors_solo_para_origenes_locales(cliente):
 def test_el_panel_se_sirve(cliente):
     assert "brazo-base" in cliente.get("/").text
     assert cliente.get("/panel/panel.js").status_code == 200
+
+
+def test_mover_relativo_conserva_la_orientacion(cliente):
+    conectado(cliente)
+    antes = cliente.get("/estado").json()["pose"]
+    assert cliente.post("/mover", json={"dz": 10}).status_code == 202
+    assert esperar_tarea(cliente)["estado"] == "terminada"
+    despues = cliente.get("/estado").json()["pose"]
+    assert despues[2] == pytest.approx(antes[2] + 10, abs=0.2) and despues[3:] == pytest.approx(antes[3:], abs=0.2)

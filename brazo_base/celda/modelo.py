@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import copy
 import math
+
+import numpy as np
 from dataclasses import dataclass, field
 
 from brazo_base.errores import CeldaInvalida
@@ -62,8 +64,13 @@ class Objeto:
 class Superficie:
     """Plano con cuadrícula de `filas` x `columnas`. Un tablero de ajedrez es una superficie 8x8.
 
-    `esquinas` tiene las cuatro esquinas (x, y) del centro de las casillas extremas: `a1` (fila 0, col 0), `h1` (fila 0, última col), `a8` (última fila,
-    col 0) y `h8`. Los lugares automáticos se llaman `nombre:<columna><fila>`, p. ej. `tablero:e4` (columnas a, b, c…; filas 1, 2, 3…).
+    `esquinas` tiene el centro de las casillas extremas: `a1` (fila 0, col 0), `h1` (fila 0, última col), `a8` (última fila, col 0) y, opcional, `h8`.
+    Con 3 esquinas la transformación afín (columna, fila) -> (x, y) es exacta; con 4 se ajusta por mínimos cuadrados (igual que el ajedrez), y el
+    error de medir cada punto se reparte en vez de acumularse en la esquina que no se midió. Los lugares automáticos son `nombre:<columna><fila>`.
+
+    `z_mm` es la altura de la superficie en el mismo sistema que las poses del brazo (en modo «brida», la z de la brida con las puntas apoyadas).
+    `corrimiento_mm` se suma a (x, y) de todo lo que se hace sobre sus casillas (lo medido al centrar la pinza sobre una pieza). `borde_mm` es lo que
+    sobresale el marco sobre la superficie: en las casillas del borde nada baja más que `z_mm + borde_mm + 2`.
     """
 
     nombre: str
@@ -71,33 +78,49 @@ class Superficie:
     z_mm: float
     filas: int
     columnas: int
+    corrimiento_mm: tuple[float, float] = (0.0, 0.0)
+    borde_mm: float = 0.0
 
     def validar(self) -> None:
-        faltan = [c for c in ("a1", "h1", "a8", "h8") if c not in self.esquinas]
+        faltan = [c for c in ("a1", "h1", "a8") if c not in self.esquinas]
         if faltan:
-            raise CeldaInvalida(f"Superficie «{self.nombre}»: faltan las esquinas {', '.join(faltan)}")
-        if self.filas < 1 or self.columnas < 1 or self.columnas > 26:
-            raise CeldaInvalida(f"Superficie «{self.nombre}»: filas >= 1 y columnas entre 1 y 26")
+            raise CeldaInvalida(f"Superficie «{self.nombre}»: faltan las esquinas {', '.join(faltan)} (h8 es opcional)")
+        if self.filas < 2 or self.columnas < 2 or self.columnas > 26:
+            raise CeldaInvalida(f"Superficie «{self.nombre}»: filas >= 2 y columnas entre 2 y 26")
+        ancla = [self._columna_fila(c) for c in self.esquinas]
+        if np.linalg.matrix_rank(np.array([[c, f, 1.0] for c, f in ancla])) < 3:
+            raise CeldaInvalida(f"Superficie «{self.nombre}»: las esquinas son colineales y no alcanzan para resolver la cuadrícula")
+
+    def _columna_fila(self, esquina: str) -> tuple[int, int]:
+        return {"a1": (0, 0), "h1": (self.columnas - 1, 0), "a8": (0, self.filas - 1), "h8": (self.columnas - 1, self.filas - 1)}[esquina]
 
     def centro(self, columna: int, fila: int) -> tuple[float, float]:
-        """Centro de la casilla (columna, fila) contando desde 0, por interpolación entre las 4 esquinas."""
-        u = columna / (self.columnas - 1) if self.columnas > 1 else 0.0
-        v = fila / (self.filas - 1) if self.filas > 1 else 0.0
-        a1, h1, a8, h8 = (self.esquinas[k] for k in ("a1", "h1", "a8", "h8"))
-        x = (1 - u) * (1 - v) * a1[0] + u * (1 - v) * h1[0] + (1 - u) * v * a8[0] + u * v * h8[0]
-        y = (1 - u) * (1 - v) * a1[1] + u * (1 - v) * h1[1] + (1 - u) * v * a8[1] + u * v * h8[1]
-        return x, y
+        """Centro de la casilla (columna, fila) contando desde 0 (sin el corrimiento)."""
+        nombres = [n for n in ("a1", "h1", "a8", "h8") if n in self.esquinas]
+        matriz = np.array([[*self._columna_fila(n), 1.0] for n in nombres])
+        cx = np.linalg.lstsq(matriz, np.array([self.esquinas[n][0] for n in nombres]), rcond=None)[0]
+        cy = np.linalg.lstsq(matriz, np.array([self.esquinas[n][1] for n in nombres]), rcond=None)[0]
+        return float(cx[0] * columna + cx[1] * fila + cx[2]), float(cy[0] * columna + cy[1] * fila + cy[2])
 
-    def lugar(self, texto: str) -> tuple[float, float, float]:
-        """Posición (x, y, z) de una casilla como `e4`."""
+    def _indices(self, texto: str) -> tuple[int, int]:
         texto = texto.strip().lower()
         if len(texto) < 2 or not texto[0].isalpha() or not texto[1:].isdigit():
             raise CeldaInvalida(f"«{texto}» no es una casilla de «{self.nombre}» (usá letra y número, p. ej. a1)")
         columna, fila = ord(texto[0]) - ord("a"), int(texto[1:]) - 1
         if not (0 <= columna < self.columnas and 0 <= fila < self.filas):
             raise CeldaInvalida(f"La casilla «{texto}» no existe en «{self.nombre}» ({self.columnas} columnas x {self.filas} filas)")
+        return columna, fila
+
+    def lugar(self, texto: str) -> tuple[float, float, float]:
+        """Posición (x, y, z) de una casilla como `e4`, con el corrimiento aplicado."""
+        columna, fila = self._indices(texto)
         x, y = self.centro(columna, fila)
-        return x, y, self.z_mm
+        return x + self.corrimiento_mm[0], y + self.corrimiento_mm[1], self.z_mm
+
+    def es_borde(self, texto: str) -> bool:
+        """Si la casilla está en la primera o la última fila o columna (junto al marco)."""
+        columna, fila = self._indices(texto)
+        return columna in (0, self.columnas - 1) or fila in (0, self.filas - 1)
 
 
 @dataclass
@@ -114,6 +137,15 @@ class Celda:
     lugares: dict[str, dict] = field(default_factory=dict)
     objetos: dict[str, Objeto] = field(default_factory=dict)
     zonas_prohibidas: list[dict] = field(default_factory=list)
+    modo_pose: str = "tcp"
+    """`"tcp"`: las poses que ve el estudiante son las de la punta, con la herramienta vertical. `"brida"`: son las de la brida con la orientación enseñada
+    (`orientacion`), tal cual las lee y las manda el controlador: así funcionó el ajedrez en el laboratorio, hasta definir la herramienta en el controlador."""
+    orientacion: tuple[float, float, float] | None = None
+    """`(rx, ry, rz)` de la herramienta con la pinza apuntando a la mesa, tomada de `GetPose()` (la del punto a1 enseñado)."""
+    agarre: dict = field(default_factory=dict)
+    """Valores comunes del pick and place por perfiles (ver `docs/conceptos.md`): `altura_segura_mm`, `holgura_traslado_mm`, `velocidad_bajada`…"""
+    perfiles: dict[str, dict] = field(default_factory=dict)
+    """Perfiles de agarre por tipo de objeto: `margen_mm`, `apertura` (0 a 1), `giro_grados`, `alto_mm`."""
     avisos: list[str] = field(default_factory=list)
     ruta: str | None = None
 

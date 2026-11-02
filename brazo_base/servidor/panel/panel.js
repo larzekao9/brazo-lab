@@ -175,8 +175,8 @@ $("desconectar").onclick = () => accion("/desconectar", {});
 $("parar").onclick = () => accion("/parar", {}, "Parado");
 $("limpiar").onclick = () => accion("/limpiar-error", {}, "Error limpiado");
 document.querySelectorAll("[data-d]").forEach((b) => (b.onclick = () => {
-  const [eje, signo] = b.dataset.d.split(","), paso = Number($("paso").value) * Number(signo), [x, y, z] = estado.pose;
-  accion("/mover", { x: x + (eje === "x" ? paso : 0), y: y + (eje === "y" ? paso : 0), z: z + (eje === "z" ? paso : 0) });
+  const [eje, signo] = b.dataset.d.split(","), paso = Number($("paso").value) * Number(signo);
+  accion("/mover", { dx: eje === "x" ? paso : 0, dy: eje === "y" ? paso : 0, dz: eje === "z" ? paso : 0 });  // relativo: no cambia la orientación de la herramienta
 }));
 $("ir").onclick = () => accion("/mover", { x: num("ir-x"), y: num("ir-y"), z: num("ir-z") });
 document.querySelectorAll("[data-h]").forEach((b) => (b.onclick = () => accion("/herramienta", { accion: b.dataset.h, valor: Number($("apertura").value) })));

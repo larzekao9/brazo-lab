@@ -1,0 +1,29 @@
+{
+ "pasos": [
+  {
+   "tipo": "articulaciones",
+   "angulos": [
+    0.0,
+    0.0,
+    90.0,
+    0.0,
+    90.0,
+    0.0
+   ],
+   "velocidad": 20
+  },
+  {
+   "tipo": "articulaciones",
+   "angulos": [
+    77.5,
+    28.0,
+    90.0,
+    0.0,
+    90.0,
+    0.0
+   ],
+   "velocidad": 20
+  }
+ ],
+ "actualizada": "2026-10-22 18:35:08"
+}

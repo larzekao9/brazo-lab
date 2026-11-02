@@ -22,6 +22,10 @@ class Herramienta(ABC):
     def inicializar(self) -> None:
         """Deja la herramienta lista para usarse (algunas no necesitan nada)."""
 
+    def preparar(self) -> None:
+        """Lo que hace falta antes de usarla tras `conectar` (por defecto, inicializarla). La pinza solo se mueve si no estaba ya inicializada."""
+        self.inicializar()
+
     def desconectar(self) -> None:
         """Libera lo que `conectar` abrió."""
 

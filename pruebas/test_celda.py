@@ -16,8 +16,8 @@ def test_la_celda_demo_carga_y_valida():
 
 def test_superficie_da_lugares_por_casilla():
     celda = celda_demo()
-    assert celda.posicion_de("tablero:a1") == (-105, -640, 0)
-    assert celda.posicion_de("tablero:h8") == (105, -430, 0)
+    assert celda.posicion_de("tablero:a1") == pytest.approx((-105, -640, 0))
+    assert celda.posicion_de("tablero:h8") == pytest.approx((105, -430, 0))
     x, y, _ = celda.posicion_de("tablero:e4")
     assert (x, y) == pytest.approx((15, -550))
 

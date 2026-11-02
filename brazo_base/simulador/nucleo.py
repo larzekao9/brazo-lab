@@ -23,8 +23,10 @@ MODO_ALARMA, MODO_PAUSA, MODO_COLISION = 9, 10, 11
 PASO_S = 1.0 / 60.0
 MAXIMO_PASOS_POR_CICLO = 600
 Pose = tuple[float, float, float, float, float, float]
-POSE_DESCANSO_ANGULOS = (-90.0, 90.93, -92.04, -88.89, 90.0, 90.0)
-"""Postura inicial (esquemática): la punta de una herramienta de 217 mm queda en (0, -350, 200)."""
+POSE_DESCANSO_ANGULOS = (298.4786, 35.3395, -150.676, 27.4337, 90.4496, -38.7623)
+"""Postura inicial si la celda no tiene un punto `descanso` con ángulos: la posición cero que se enseñó en el laboratorio."""
+PASO_RUTA_MM = 10.0
+"""Cada cuántos mm se resuelve la cinemática inversa a lo largo de un `MovL` (se hace al encolar, no en cada paso de tiempo)."""
 
 
 class ErrorDeComando(Exception):
@@ -55,6 +57,13 @@ class Movimiento:
     articular: bool
     duracion: float
     transcurrido: float = 0.0
+    ruta: list[tuple[float, ...]] | None = None
+    """Ángulos de cada punto de la recta de un `MovL` (resueltos al encolar): la brida sigue la recta y no una curva."""
+
+
+def _mezclar_orientacion(inicio: Pose, fin: Pose, f: float) -> tuple[float, float, float]:
+    """Orientación intermedia (rx, ry, rz) entre dos poses, por el camino angular corto."""
+    return tuple(a + (((b - a + 180.0) % 360.0) - 180.0) * f for a, b in zip(inicio[3:], fin[3:]))
 
 
 def _suave(s: float) -> float:
@@ -78,8 +87,10 @@ class Simulador:
         self.historial: deque[dict] = deque(maxlen=300)
         self.mundo = MundoGeometrico(celda, carrera_mm=self.parametros.fisicos.carrera_mm)
         self.pinza = PinzaSimulada(self.mundo, self.parametros.fisicos, self.registrar)
-        self.angulos: tuple[float, ...] = POSE_DESCANSO_ANGULOS
+        inicial = celda.puntos.get("descanso", {}).get("angulos")
+        self.angulos: tuple[float, ...] = tuple(float(a) for a in inicial) if inicial and len(inicial) == 6 else POSE_DESCANSO_ANGULOS
         self.pose: Pose = cinematica.pose_para_angulos(self.angulos)
+        self._rotacion = cinematica.fk(self.angulos)[0]
         self.cola: deque[Movimiento] = deque()
         self.actual: Movimiento | None = None
         self.siguiente_id = 1
@@ -134,9 +145,9 @@ class Simulador:
         return MODO_LIBRE
 
     def tcp(self) -> tuple[float, float, float]:
-        """Posición de la punta de la herramienta (la herramienta va vertical: solo cambia la z)."""
-        x, y, z = self.pose[:3]
-        return x, y, z - self.largo_herramienta_mm
+        """Posición de la punta de la herramienta: la brida más el largo a lo largo del eje de la herramienta (con la orientación real del brazo)."""
+        punta = self.pose[:3] + self._rotacion[:, 2] * self.largo_herramienta_mm
+        return float(punta[0]), float(punta[1]), float(punta[2])
 
     def telemetria(self) -> dict:
         with self.cerrojo:
@@ -171,8 +182,11 @@ class Simulador:
         if not self.habilitado:
             raise ErrorDeComando(-1, "el brazo no está habilitado")
 
-    def _punto_final(self, base: Pose | tuple[float, ...]) -> tuple[float, float, float]:
-        return base[0], base[1], base[2] - self.largo_herramienta_mm
+    def _punta_de(self, angulos: tuple[float, ...]) -> tuple[float, float, float]:
+        """Punta de la herramienta para unos ángulos (con la orientación que da la cinemática)."""
+        R, p = cinematica.fk(angulos)
+        punta = p + R[:, 2] * self.largo_herramienta_mm
+        return float(punta[0]), float(punta[1]), float(punta[2])
 
     def _encolar(self, m: Movimiento) -> int:
         self.cola.append(m)
@@ -190,34 +204,51 @@ class Simulador:
         return max(1.0, v) / 100.0 * self.velocidad_global / 100.0
 
     def encolar_pose(self, pose, articular: bool, velocidad: float, aceleracion: float, velocidad_abs: float | None = None) -> int:
-        """`MovJ/MovL(pose=...)`: la pose es la de la brida. Falla si está fuera de alcance o la punta entraría en la mesa."""
+        """`MovJ/MovL(pose=...)`: la pose es la de la brida. Falla si está fuera de alcance o la punta entraría en la mesa.
+
+        `MovL` resuelve la cinemática inversa cada `PASO_RUTA_MM` a lo largo de la recta, siguiendo la misma solución del brazo, para que la brida vaya
+        derecho (es lo que validan las zonas) en vez de por una curva en el espacio de articulaciones.
+        """
         with self.cerrojo:
             self._exigir_listo()
             pose = tuple(float(v) for v in pose)
-            angulos = cinematica.angulos_para_pose(pose[0], pose[1], pose[2], pose[5])
-            if angulos is None:
-                raise ErrorDeComando(-1, f"la pose ({pose[0]:.0f}, {pose[1]:.0f}, {pose[2]:.0f}) está fuera del alcance del brazo simulado")
-            if self._punto_final(pose)[2] < self.celda.mesa_z_mm - 1.0:
-                raise ErrorDeComando(-1, "la punta de la herramienta quedaría dentro de la mesa")
             inicio_pose, inicio_ang = self._ultimo_estado()
-            fin = (pose[0], pose[1], pose[2], 180.0, 0.0, pose[5])
-            distancia = math.dist(inicio_pose[:3], fin[:3])
+            distancia = math.dist(inicio_pose[:3], pose[:3])
+            if articular:
+                angulos = cinematica.angulos_para_pose_completa(pose, inicio_ang)
+                ruta = None
+            else:
+                puntos = max(1, math.ceil(distancia / PASO_RUTA_MM))
+                ruta, previo = [], inicio_ang
+                angulos = None
+                for k in range(1, puntos + 1):
+                    f = k / puntos
+                    intermedia = tuple(a + (b - a) * f for a, b in zip(inicio_pose[:3], pose[:3])) + (pose[3:] if k == puntos else _mezclar_orientacion(inicio_pose, pose, f))
+                    angulos = cinematica.angulos_para_pose_completa(intermedia, previo, alternativas=(k == 1))
+                    if angulos is None:
+                        break
+                    ruta.append(angulos)
+                    previo = angulos
+            if angulos is None:
+                raise ErrorDeComando(-1, f"la pose ({pose[0]:.0f}, {pose[1]:.0f}, {pose[2]:.0f}) está fuera del alcance del brazo (o el camino recto no es posible)")
+            if self._punta_de(angulos)[2] < self.celda.mesa_z_mm - 1.0:
+                raise ErrorDeComando(-1, "la punta de la herramienta quedaría dentro de la mesa")
+            fin = cinematica.pose_para_angulos(angulos)
             if articular:
                 dur = self._duracion_articular(inicio_ang, angulos, velocidad)
             else:
                 v_mm_s = velocidad_abs if velocidad_abs else self.parametros.robot.velocidad_lineal_max_mm_s * self._fijo(velocidad)
-                dur = distancia / max(v_mm_s, 1.0)
-                dur = max(dur, self._duracion_articular(inicio_ang, angulos, 100) * 0.5)
+                dur = max(distancia / max(v_mm_s, 1.0), self._duracion_articular(inicio_ang, angulos, 100) * 0.5)
             identificador = self.siguiente_id
             self.siguiente_id += 1
-            return self._encolar(Movimiento(identificador, inicio_pose, inicio_ang, fin, angulos, articular, max(dur, self.parametros.robot.duracion_minima_s)))
+            return self._encolar(Movimiento(identificador, inicio_pose, inicio_ang, fin, angulos, articular, max(dur, self.parametros.robot.duracion_minima_s), ruta=ruta))
 
     def encolar_angulos(self, angulos, velocidad: float, aceleracion: float) -> int:
         with self.cerrojo:
             self._exigir_listo()
             angulos = tuple(float(v) for v in angulos)
             fin_pose = cinematica.pose_para_angulos(angulos)
-            if self._punto_final(fin_pose)[2] < self.celda.mesa_z_mm - 1.0:
+            if self._punta_de(angulos)[2] < self.celda.mesa_z_mm - 1.0:
                 raise ErrorDeComando(-1, "la punta de la herramienta quedaría dentro de la mesa")
             inicio_pose, inicio_ang = self._ultimo_estado()
             dur = self._duracion_articular(inicio_ang, angulos, velocidad)
@@ -249,6 +280,10 @@ class Simulador:
             if restante > 1e-9 and pasos == 0:
                 self._paso(restante)
 
+    def _actualizar_pose(self) -> None:
+        self._rotacion = cinematica.fk(self.angulos)[0]
+        self.pose = cinematica.pose_para_angulos(self.angulos)
+
     def _paso(self, dt: float) -> None:
         self.tiempo += dt
         if self.habilitado and not self.pausa_robot and not self.arrastrando and not (self.fallos.alarma or self.fallos.colision):
@@ -258,15 +293,18 @@ class Simulador:
             if m is not None:
                 m.transcurrido += dt
                 s = _suave(min(1.0, m.transcurrido / m.duracion))
-                if m.articular:
-                    self.angulos = tuple(a + (b - a) * s for a, b in zip(m.inicio_angulos, m.fin_angulos))
-                    self.pose = cinematica.pose_para_angulos(self.angulos) if s < 1.0 else m.fin_pose
+                if m.ruta:
+                    posicion = s * len(m.ruta)
+                    k = min(int(posicion), len(m.ruta) - 1)
+                    desde = m.ruta[k - 1] if k > 0 else m.inicio_angulos
+                    f = min(1.0, posicion - k)
+                    self.angulos = tuple(a + (b - a) * f for a, b in zip(desde, m.ruta[k]))
                 else:
-                    self.pose = tuple(a + (b - a) * s for a, b in zip(m.inicio_pose, m.fin_pose))
-                    ang = cinematica.angulos_para_pose(self.pose[0], self.pose[1], self.pose[2], self.pose[5])
-                    self.angulos = ang if ang is not None else self.angulos
+                    self.angulos = tuple(a + (b - a) * s for a, b in zip(m.inicio_angulos, m.fin_angulos))
+                self._actualizar_pose()
                 if m.transcurrido >= m.duracion:
-                    self.pose, self.angulos = m.fin_pose, m.fin_angulos
+                    self.angulos = m.fin_angulos
+                    self._actualizar_pose()
                     self.actual = None
         self.mundo.paso(dt, self.tcp())
         self.pinza.actualizar(self.tiempo)

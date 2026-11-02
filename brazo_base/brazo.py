@@ -15,16 +15,35 @@ from pathlib import Path
 
 from brazo_base.celda import Celda, cargar_celda, celda_demo
 from brazo_base.conexion.cliente_dobot import MODO_LIBRE, ClienteDobot, ErrorDobot
-from brazo_base.errores import ErrorBrazo, ErrorDelControlador, NoAgarro, NoHabilitado, RecorridoProhibido, SinConexion
+from brazo_base.errores import ErrorBrazo, ErrorDelControlador, HerramientaNoResponde, NoAgarro, NoHabilitado, RecorridoProhibido, SinConexion
 from brazo_base.herramientas import herramienta_desde_config
-from brazo_base.seguridad import trayectos, validador
+from brazo_base.seguridad import geometria, perfiles, trayectos, validador, zonas
 from brazo_base.seguridad.validador import Tramo
 
 VELOCIDAD_REAL_POR_DEFECTO = 20
 VELOCIDAD_SIMULADOR_POR_DEFECTO = 60
 ESPERA_ENCENDIDO_S = 20.0
+ORIENTACION_PARECIDA_GRADOS = 15.0
+RADIO_MINIMO_RECTA_MM = 250.0
+"""Una recta que pasa a menos de esto del eje de la base cae en la zona donde el brazo no puede seguirla: se va por articulaciones (`MovJ`)."""
 MARGEN_SOLTAR_MM = 1.0
 """Cuánto por encima de la superficie se suelta (la base queda a esta distancia al abrir)."""
+
+
+def _distancia_al_eje(a, b) -> float:
+    """Distancia mínima del segmento a→b (en el plano horizontal) al eje de la base, que está en (0, 0)."""
+    (ax, ay), (bx, by) = a, b
+    dx, dy = bx - ax, by - ay
+    largo2 = dx * dx + dy * dy
+    t = 0.0 if largo2 == 0 else max(0.0, min(1.0, -(ax * dx + ay * dy) / largo2))
+    return ((ax + t * dx) ** 2 + (ay + t * dy) ** 2) ** 0.5
+
+
+class _Zonas:
+    """Lo que `zonas.problemas_de_brazo` lee de una celda: sus zonas (con los objetos fijos) y los límites de la mesa."""
+
+    def __init__(self, celda: Celda):
+        self.zonas_prohibidas, self.limites_mesa = celda.zonas_efectivas, celda.limites_mesa
 
 
 class Brazo:
@@ -47,7 +66,7 @@ class Brazo:
             celda = cargar_celda(celda)
         self.celda: Celda = celda
         self.herramienta = herramienta_desde_config(celda.herramienta_config, celda.herramienta)
-        base = VELOCIDAD_SIMULADOR_POR_DEFECTO if destino == "simulador" else VELOCIDAD_REAL_POR_DEFECTO
+        base = VELOCIDAD_SIMULADOR_POR_DEFECTO if destino == "simulador" else int(celda.agarre.get("velocidad_global", VELOCIDAD_REAL_POR_DEFECTO))
         v = base if velocidad is None else int(velocidad)
         if not 1 <= v <= 100:
             raise ErrorBrazo("La velocidad va de 1 a 100 (%)")
@@ -77,7 +96,8 @@ class Brazo:
             self._servidor = ServidorDashboard(ProtocoloDobot(self.simulador), "127.0.0.1", 0)
             self._servidor.iniciar()
             host, puerto = "127.0.0.1", self._servidor.puerto
-        cliente = ClienteDobot(host, puerto, velocidad_global=self.velocidad, velocidad=self.velocidad)
+        agarre = self.celda.agarre
+        cliente = ClienteDobot(host, puerto, velocidad_global=self.velocidad, aceleracion=int(agarre.get("aceleracion", self.velocidad)), velocidad=int(agarre.get("velocidad", self.velocidad)))
         try:
             cliente.conectar()
         except (ErrorDobot, OSError) as error:
@@ -101,8 +121,7 @@ class Brazo:
                 raise ErrorDelControlador(f"El brazo está en el modo {modo}: resolvé la alarma (brazo.limpiar_error()) antes de habilitar")
             self.herramienta.conectar(c)
             self._habilitado = True
-            if self.destino == "simulador":
-                self.herramienta.inicializar()
+            self.herramienta.preparar()
         except ErrorDobot as error:
             raise ErrorDelControlador(str(error)) from error
 
@@ -169,6 +188,8 @@ class Brazo:
     def pose(self) -> tuple[float, float, float, float, float, float]:
         """`(x, y, z, rx, ry, rz)` del TCP, en mm y grados."""
         x, y, z, rx, ry, rz = self._exigir_conexion().pose()
+        if self.celda.modo_pose == "brida":
+            return (x, y, z, rx, ry, rz)  # tal cual la lee el controlador
         return (x, y, z - self.largo_mm, rx, ry, rz)
 
     def angulos(self) -> tuple[float, ...]:
@@ -185,6 +206,10 @@ class Brazo:
 
     # --- movimiento -----------------------------------------------------------------------------------------------------------
     def _a_brida(self, x: float, y: float, z: float, rz: float) -> tuple[float, float, float, float, float, float]:
+        """La pose que se le manda al controlador. «tcp»: la punta con la herramienta vertical, más el largo de la herramienta. «brida»: la pose tal cual,
+        con la orientación (rx, ry) enseñada."""
+        if self.celda.modo_pose == "brida":
+            return (x, y, z, self.celda.orientacion[0], self.celda.orientacion[1], rz)
         return (x, y, z + self.largo_mm, 180.0, 0.0, rz)
 
     def _ejecutar(self, accion):
@@ -195,20 +220,34 @@ class Brazo:
         except TimeoutError as error:
             raise ErrorDelControlador(str(error)) from error
 
-    def mover_a(self, x: float | None = None, y: float | None = None, z: float | None = None, rz: float | None = None, lineal: bool = True) -> None:
-        """Lleva el TCP a `(x, y, z)` mm con la herramienta vertical. Lo que no se da se queda como está. Valida el recorrido antes de mover."""
+    def mover_a(self, x: float | None = None, y: float | None = None, z: float | None = None, rz: float | None = None, lineal: bool | None = None) -> None:
+        """Lleva el TCP a `(x, y, z)` mm con la herramienta vertical. Lo que no se da se queda como está. Valida el recorrido antes de mover.
+
+        `lineal=None` (por defecto) va en línea recta (`MovL`) si la herramienta ya apunta casi igual que al llegar, y por articulaciones (`MovJ`) si hay que
+        girarla mucho (p. ej. al salir de la posición de descanso): una recta con un giro grande puede ser imposible para el brazo.
+        """
         c = self._listo()
         ax, ay, az, _, _, arz = self.pose()
         destino = (ax if x is None else x, ay if y is None else y, az if z is None else z)
         validador.exigir_tramos([Tramo((ax, ay, az), destino, "mover_a")], self.celda)
         self._ir(c, destino, arz if rz is None else rz, lineal)
 
-    def _ir(self, c: ClienteDobot, destino: tuple[float, float, float], rz: float, lineal: bool = True) -> None:
-        self._ejecutar(lambda: c.mover_a_pose(self._a_brida(*destino, rz), lineal=lineal))
+    def _ir(self, c: ClienteDobot, destino: tuple[float, float, float], rz: float, lineal: bool | None = True) -> None:
+        pose = self._a_brida(*destino, rz)
+        if lineal is None:
+            actual = self._exigir_conexion().pose()
+            giro = max(abs((a - b + 180.0) % 360.0 - 180.0) for a, b in zip(actual[3:5], pose[3:5]))
+            cerca_de_la_base = _distancia_al_eje(actual[:2], pose[:2]) < RADIO_MINIMO_RECTA_MM
+            lineal = giro < ORIENTACION_PARECIDA_GRADOS and not cerca_de_la_base
+        self._ejecutar(lambda: c.mover_a_pose(pose, lineal=lineal))
 
     def mover_relativo(self, dx: float = 0.0, dy: float = 0.0, dz: float = 0.0) -> None:
+        """Desplaza el TCP en línea recta `(dx, dy, dz)` mm SIN cambiar la orientación de la herramienta. Valida el recorrido antes de mover."""
+        c = self._listo()
         x, y, z, *_ = self.pose()
-        self.mover_a(x + dx, y + dy, z + dz)
+        validador.exigir_tramos([Tramo((x, y, z), (x + dx, y + dy, z + dz), "mover_relativo")], self.celda)
+        bx, by, bz, rx, ry, rz = c.pose()  # la pose de la brida tal cual: así la orientación queda igual
+        self._ejecutar(lambda: c.mover_a_pose((bx + dx, by + dy, bz + dz, rx, ry, rz), lineal=True))
 
     def mover_articulaciones(self, angulos: list[float] | tuple[float, ...]) -> None:
         """Va a los 6 ángulos (grados). Valida límites de articulación, mesa, choques entre eslabones y zonas con TODO el brazo."""
@@ -221,13 +260,27 @@ class Brazo:
         punto = self.celda.puntos.get(nombre)
         if punto is not None:
             if "angulos" in punto:
-                return self.mover_articulaciones(punto["angulos"])
+                return self._ir_a_angulos_ensenados(punto["angulos"])
             if "pose" in punto:
-                x, y, zb, _, _, rz = punto["pose"]
-                return self.mover_a(x, y, zb - self.largo_mm, rz)
+                return self._ir_a_pose_ensenada(punto["pose"])
             raise ErrorBrazo(f"El punto «{nombre}» no tiene ni «angulos» ni «pose»")
         x, y, _ = self.celda.posicion_de(nombre, self._posiciones)
         self._subir_y_ir(x, y, self.celda.altura_segura_mm)
+
+    def _ir_a_angulos_ensenados(self, angulos) -> None:
+        """Va a unos ángulos que se enseñaron con el brazo real: no se contrastan con el URDF (los valió el laboratorio), solo con las zonas prohibidas."""
+        c = self._listo()
+        problemas = zonas.problemas_de_brazo(list(angulos), _Zonas(self.celda), self.largo_mm / 1000 if self.largo_mm else geometria.LARGO_PINZA_DEFECTO)
+        if problemas:
+            raise RecorridoProhibido(problemas)
+        self._ejecutar(lambda: c.mover_a_angulos(tuple(angulos)))
+
+    def _ir_a_pose_ensenada(self, pose) -> None:
+        """Va EXACTAMENTE a una pose enseñada (de la brida, con su orientación): sin convertir nada."""
+        c = self._listo()
+        actual = self.pose()
+        validador.exigir_tramos([Tramo(tuple(actual[:3]), tuple(pose[:3]), "ir_a")], self.celda)
+        self._ejecutar(lambda: c.mover_a_pose(tuple(pose), lineal=False))
 
     def _subir_y_ir(self, x: float, y: float, z_viaje: float) -> None:
         z = max(self.pose()[2], z_viaje)
@@ -274,7 +327,7 @@ class Brazo:
             if tipo == "abrir":
                 self.herramienta.abrir_a(args[0])
             elif tipo == "mover":
-                self._ir(c, args, rz)
+                self._ir(c, args, rz, None)
             elif tipo == "cerrar":
                 sostiene = self.herramienta.cerrar()
                 if sostiene is False:
@@ -301,8 +354,8 @@ class Brazo:
         puntos = [(ax, ay, az), (ax, ay, z_alto), (lx, ly, z_alto), (lx, ly, z_suelta), (lx, ly, z_alto)]
         validador.exigir_tramos([Tramo(a, b, f"soltar {nombre} en {lugar}") for a, b in zip(puntos, puntos[1:])], self.celda)
         rz = self.pose()[5]
-        self._ir(c, puntos[1], rz)
-        self._ir(c, puntos[2], rz)
+        self._ir(c, puntos[1], rz, None)
+        self._ir(c, puntos[2], rz, None)
         self._ir(c, puntos[3], rz)
         self.herramienta.abrir_a(o.apertura)
         self._posiciones[nombre] = (lx, ly, lz)
@@ -359,6 +412,71 @@ class Brazo:
         if self.simulador is not None:
             return {n: tuple(p) for n, p in self.simulador.mundo.posiciones().items()}
         return dict(self._posiciones)
+
+    # --- pick and place por perfiles (lo que probó el ajedrez con el brazo real) -----------------------------------------------
+    def llevar_desde(self, desde: str, hasta: str, perfil: str = "defecto", volver_a: str | None = "descanso") -> None:
+        """Agarra lo que haya en el lugar `desde` y lo suelta en `hasta`, con los valores del `perfil` de agarre de la celda."""
+        self.ejecutar_pasos([(desde, hasta, perfil)], volver_a)
+
+    def _lento(self, c: ClienteDobot) -> dict:
+        """Velocidad y aceleración de los tramos verticales cerca de la mesa: nunca más rápidas que las generales del brazo."""
+        a = self.celda.agarre
+        return {"velocidad": min(int(a.get("velocidad_bajada", 10)), c.velocidad), "aceleracion": min(int(a.get("aceleracion_bajada", 5)), c.aceleracion)}
+
+    def _tramos_de_pasos(self, pasos: list[tuple[str, str, str]]) -> list[Tramo]:
+        poses = perfiles.Poses(self.celda)
+        previo = tuple(self.pose()[:3])
+        tramos: list[Tramo] = []
+        for desde, hasta, perfil in pasos:
+            sobre = poses.traslado(perfil)
+            camino = [poses.pose(desde, sobre, perfil), poses.pose_de_agarre(desde, perfil), poses.pose(desde, sobre, perfil), poses.pose(hasta, sobre, perfil), poses.pose_de_soltar(hasta, perfil), poses.pose(hasta, sobre, perfil)]
+            for punto in camino:
+                tramos.append(Tramo(previo, tuple(punto[:3]), f"llevar {desde} -> {hasta}"))
+                previo = tuple(punto[:3])
+        return tramos
+
+    def ejecutar_pasos(self, pasos: list[tuple[str, str, str]], volver_a: str | None = "descanso") -> None:
+        """Hace cada paso `(desde, hasta, perfil)` y, al final, vuelve al punto `volver_a` (por ángulos). Todo se comprueba ANTES de mover nada: perfiles,
+        lugares, zonas prohibidas y que la herramienta esté inicializada.
+
+        Secuencia de un paso (la del `EjecutorReal` del ajedrez): abre a la apertura del perfil; va sobre `desde` (articular); baja despacio hasta agarrar; cierra y
+        comprueba que sostiene algo; sube despacio y vuelve a comprobar; se traslada sobre `hasta`; baja despacio; suelta (más abierta que al agarrar); y sube despacio.
+        """
+        c = self._listo()
+        if self.celda.modo_pose != "brida":
+            raise ErrorBrazo("llevar_desde / ejecutar_pasos trabajan con poses de la brida: poné «modo_pose»: «brida» y la «orientacion» enseñada en la celda")
+        poses = perfiles.Poses(self.celda)
+        for desde, hasta, perfil in pasos:  # que todo lo que haga falta esté listo antes de mover la primera pieza
+            poses.margen(perfil), poses.apertura(perfil), poses.pose(desde, 0, perfil), poses.pose(hasta, 0, perfil)
+        validador.exigir_tramos(self._tramos_de_pasos(pasos), self.celda)
+        if volver_a is not None and "angulos" not in self.celda.puntos.get(volver_a, {}):
+            raise ErrorBrazo(f"No hay un punto «{volver_a}» con ángulos en la celda para volver al terminar (o pasá volver_a=None)")
+        if not self.herramienta.estado().get("inicializada", True):
+            raise HerramientaNoResponde("La herramienta no está inicializada: llamá a brazo.herramienta.inicializar() antes de mover objetos")
+        for desde, hasta, perfil in pasos:
+            self._trasladar(c, poses, desde, hasta, perfil)
+        if volver_a is not None:
+            self._ir_a_angulos_ensenados(self.celda.puntos[volver_a]["angulos"])
+
+    def _trasladar(self, c: ClienteDobot, poses: perfiles.Poses, desde: str, hasta: str, perfil: str) -> None:
+        sobre, apertura, lento = poses.traslado(perfil), poses.apertura(perfil), self._lento(c)
+        ir = lambda pose, lineal=False, **kw: self._ejecutar(lambda: c.mover_a_pose(tuple(pose), lineal=lineal, **kw))
+        self.herramienta.abrir_a(apertura)
+        ir(poses.pose(desde, sobre, perfil))
+        ir(poses.pose_de_agarre(desde, perfil), True, **lento)  # baja despacio: sin golpear la superficie
+        if not self.herramienta.cerrar():
+            self.herramienta.abrir_a(apertura)
+            ir(poses.pose(desde, sobre, perfil), True, **lento)
+            raise NoAgarro(f"La herramienta cerró en «{desde}» y no sintió nada (¿hay algo ahí?). Se abrió y se subió; no se movió nada más")
+        ir(poses.pose(desde, sobre, perfil), True, **lento)  # y sube despacio con lo agarrado
+        if not self.herramienta.estado().get("sostiene", True):
+            self.herramienta.abrir_a(apertura)
+            ir(poses.pose(desde, sobre, perfil), True, **lento)
+            raise NoAgarro(f"Se cayó lo que se agarró en «{desde}» al subirlo: puede haber quedado en cualquier lado, que lo mire una persona")
+        ir(poses.pose(hasta, sobre, perfil), True)
+        ir(poses.pose_de_soltar(hasta, perfil), True, **lento)
+        self.herramienta.abrir_a(poses.apertura_al_soltar(perfil))
+        ir(poses.pose(hasta, sobre, perfil), True, **lento)
 
     def ejecutar_rutina(self, nombre: str) -> None:
         raise NotImplementedError("Las rutinas llegan en la fase 3 (ver docs/bitacora.md)")

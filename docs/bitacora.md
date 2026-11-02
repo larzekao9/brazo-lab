@@ -44,3 +44,24 @@
 - Todo respeta `prefers-reduced-motion` (salta directo, sin transiciones).
 - Buenas prácticas tomadas de los skills de GSAP del repo Neverita (`quickTo`/`overwrite`, `autoAlpha`, `matchMedia`). De ese repo no se copió código al proyecto.
 - Bug encontrado probando en el navegador: dos `gsap.to` con `overwrite: true` sobre el mismo objeto se cancelan entre sí; se usa `overwrite: "auto"`.
+
+## Calibración real y equivalencia con el ajedrez (2026-11-02)
+
+**Hecho**
+- `celda/celda.json` sale de `calibracion_local/brazo.json` (solo se lee): orientación enseñada, tablero (ajuste afín por mínimos cuadrados igual que el ajedrez, corrimiento y marco),
+  6 perfiles de agarre (peón a rey), cementerio, cementerio del jugador y reserva, velocidades y la pinza (217 mm, fuerza 43, velocidad 20).
+- Modo `brida`: las poses se mandan tal cual con la orientación enseñada. `Brazo.ejecutar_pasos` / `llevar_desde` replican la secuencia de `EjecutorReal`. **Prueba de equivalencia:**
+  10 jugadas (borde, cementerio con desnivel, cementerio del jugador, reserva) dan los mismos comandos que el ajedrez; 5 quedaron congeladas en `pruebas/datos/` como regresión.
+- Simulador con cinemática del URDF y cinemática inversa numérica (antes esquemática): sus ángulos son los de un CR5, no los de un modelo inventado. `MovL` sigue la recta de verdad.
+- `mover_a` elige `MovJ` o `MovL` (giro grande o recta cerca de la base → articular); `mover_relativo` conserva la orientación; `ir_a` a una pose enseñada va exactamente a ella.
+- `Herramienta.preparar()`: la pinza solo se mueve al conectar si no estaba inicializada (como `EjecutorReal.conectar`).
+- Scripts de laboratorio y `docs/laboratorio.md`.
+
+**Descubierto**
+- En TCP vertical la punta quedaría ~12 mm fuera de donde calibró el ajedrez (la inclinación de 2,4° y el giro de 45°): por eso la celda del laboratorio usa `brida`.
+- Corregido sin cambiar los valores del laboratorio: la altura de traslado ya no resta el margen de agarre (con esta calibración da lo mismo: 90 mm).
+
+**Pendiente**
+- Verificar en el laboratorio que el URDF coincide con los ángulos del controlador (`herramientas/verificar_geometria.py`).
+- Rutinas guardadas del ajedrez copiadas a `celda/rutinas/` (formato del ajedrez); falta el ejecutor de rutinas (fase 3).
+- El planificador del ajedrez (capturas, enroque…) sigue en el ajedrez; produce pasos `(desde, hasta, perfil)` para `ejecutar_pasos` (fase 5).

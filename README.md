@@ -3,7 +3,7 @@
 Plataforma abierta para **aprender, practicar y desarrollar** con el brazo Dobot CR5AS del laboratorio **sin tener el brazo delante**. Lo que
 funciona en el simulador funciona igual en el brazo real: solo cambia `destino`.
 
-> Estado: **fase 2** (librería `Brazo` + simulador + API HTTP + panel web). Ver `docs/bitacora.md` y `../Ajedrez/PLAN_BRAZO_BASE.md`.
+> Estado: **fase 2** (librería `Brazo` + simulador + API HTTP + panel web) y la celda del laboratorio importada de la calibración real del ajedrez. Guía: `docs/laboratorio.md`. Ver `docs/bitacora.md` y `../Ajedrez/PLAN_BRAZO_BASE.md`.
 
 ## Instalación
 
@@ -56,7 +56,8 @@ internet, así que necesita conexión la primera vez. Ver `docs/api_http.md` y `
 | `brazo_base/seguridad/` | Zonas, geometría del CR5 (URDF), validador, alturas de viaje |
 | `brazo_base/herramientas/` | Interfaz `Herramienta`, pinza DH, salida digital, ninguna |
 | `brazo_base/simulador/` | Controlador virtual (protocolo V4, pinza Modbus, fallos provocables) |
-| `celda/` | La configuración de ESTA celda del laboratorio (a completar en el laboratorio) |
+| `celda/` | La celda del laboratorio, generada de la calibración real del ajedrez (`herramientas/importar_calibracion_ajedrez.py`) |
+| `herramientas/` | Scripts de laboratorio: conexión de solo lectura, verificar el modelo, ensayar y mover una pieza |
 | `brazo_base/servidor/` | API FastAPI, telemetría por WebSocket y panel web |
 | `ejemplos/` | Scripts 01 a 05 y la página 06 |
 

@@ -63,10 +63,10 @@ def test_zona_prohibida_falla_antes_de_mover(brazo):
 
 
 def test_punto_ir_a_descanso(brazo):
+    inicial = brazo.pose()
     brazo.mover_a(0, -500, 100)
     brazo.ir_a("descanso")
-    x, y, z, *_ = brazo.pose()
-    assert (round(x), round(y), round(z)) == (0, -350, 200)
+    assert brazo.pose() == pytest.approx(inicial, abs=0.2)
 
 
 def test_llevar_una_caja_de_un_lugar_a_otro(brazo):
@@ -153,4 +153,4 @@ def test_parar_corta_el_movimiento_en_curso():
         assert not hilo.is_alive()
         x, y, z, *_ = b.pose()
         assert y > -600 + 5  # no llegó
-        b.mover_a(0, -450, 150)  # el siguiente movimiento anda
+        b.mover_relativo(dz=5)  # el siguiente movimiento anda (corto: a esta velocidad uno largo tarda mucho)

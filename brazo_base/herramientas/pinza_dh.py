@@ -283,6 +283,18 @@ class PinzaDHHerramienta(Herramienta):
             raise HerramientaNoResponde(str(error)) from error
         self._inicializada = True
 
+    def preparar(self) -> None:
+        """Como `EjecutorReal.conectar`: si la pinza ya está inicializada no se mueve (solo se le fija la fuerza y la velocidad); si no, se inicializa."""
+        try:
+            if self._bajo_nivel().estado().inicializada:
+                self._pinza.escribir(REG_FUERZA, self.fuerza)
+                self._pinza.escribir(REG_VELOCIDAD, self.velocidad)
+                self._inicializada = True
+                return
+        except PinzaNoResponde as error:
+            raise HerramientaNoResponde(str(error)) from error
+        self.inicializar()
+
     def desconectar(self) -> None:
         if self._pinza is not None:
             try:

@@ -3,10 +3,10 @@
   "nombre": "Celda de práctica (simulador)",
   "controlador": {"host": "127.0.0.1", "puerto": 29999},
   "herramienta": "pinza_demo",
-  "seguridad": {"velocidad_maxima_real": 50, "limites_mesa": [-600, -900, 600, 200], "altura_minima_mm": 5, "altura_segura_mm": 150},
+  "seguridad": {"velocidad_maxima_real": 50, "limites_mesa": [-700, -900, 700, 450], "altura_minima_mm": 5, "altura_segura_mm": 150},
   "mesa": {"z_mm": 0},
   "puntos": {
-    "descanso": {"angulos": [-90.0, 90.93, -92.04, -88.89, 90.0, 90.0]}
+    "descanso": {"angulos": [298.4786, 35.3395, -150.676, 27.4337, 90.4496, -38.7623]}
   },
   "superficies": {
     "tablero": {"esquinas": {"a1": [-105, -640], "h1": [105, -640], "a8": [-105, -430], "h8": [105, -430]}, "z_mm": 0, "filas": 8, "columnas": 8}

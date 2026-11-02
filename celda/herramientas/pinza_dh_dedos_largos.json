@@ -1,1 +1,7 @@
-{"tipo": "pinza_dh", "largo_mm": 217, "fuerza": 20, "velocidad": 20, "carrera_mm": 26}
+{
+  "tipo": "pinza_dh",
+  "largo_mm": 217.0,
+  "fuerza": 43,
+  "velocidad": 20,
+  "carrera_mm": 26
+}

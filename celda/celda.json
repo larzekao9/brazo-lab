@@ -1,15 +1,498 @@
 {
   "version": 1,
   "nombre": "Laboratorio FICCT - Dobot CR5AS",
-  "controlador": {"host": "192.168.5.1", "puerto": 29999},
-  "herramienta": "pinza_dh_dedos_largos",
-  "seguridad": {"velocidad_maxima_real": 50, "limites_mesa": null, "altura_minima_mm": 5, "altura_segura_mm": 150},
-  "mesa": {"z_mm": 0},
-  "puntos": {
-    "descanso": {"angulos": [298.4786, 35.3395, -150.676, 27.4337, 90.4496, -38.7623]}
+  "controlador": {
+    "host": "192.168.5.1",
+    "puerto": 29999
   },
-  "superficies": {},
-  "lugares": {},
+  "herramienta": "pinza_dh_dedos_largos",
+  "seguridad": {
+    "velocidad_maxima_real": 50,
+    "limites_mesa": null,
+    "altura_minima_mm": 5,
+    "altura_segura_mm": 90.0
+  },
+  "mesa": {
+    "z_mm": 0
+  },
+  "puntos": {
+    "descanso": {
+      "angulos": [
+        298.4786,
+        35.3395,
+        -150.676,
+        27.4337,
+        90.4496,
+        -38.7623
+      ]
+    },
+    "a1": {
+      "pose": [
+        -120.2501,
+        -674.2083,
+        225.0079,
+        177.7786,
+        -2.3812,
+        -82.0584
+      ]
+    },
+    "h1": {
+      "pose": [
+        171.7961,
+        -679.6634,
+        224.2345,
+        177.7839,
+        -2.1144,
+        -58.049
+      ]
+    },
+    "a8": {
+      "pose": [
+        -119.6829,
+        -372.7432,
+        221.5248,
+        179.4505,
+        -3.2605,
+        -80.6175
+      ]
+    },
+    "h8": {
+      "pose": [
+        177.0482,
+        -382.7433,
+        221.3982,
+        178.976,
+        -2.1128,
+        -66.924
+      ]
+    }
+  },
+  "superficies": {
+    "tablero_ajedrez": {
+      "esquinas": {
+        "a1": [
+          -120.2501,
+          -674.2083
+        ],
+        "h1": [
+          171.7961,
+          -679.6634
+        ],
+        "a8": [
+          -119.6829,
+          -372.7432
+        ],
+        "h8": [
+          177.0482,
+          -382.7433
+        ]
+      },
+      "z_mm": 225.6,
+      "filas": 8,
+      "columnas": 8,
+      "corrimiento_mm": [
+        -4.0,
+        0.1
+      ],
+      "borde_mm": 7.0
+    }
+  },
+  "lugares": {
+    "cementerio:0": {
+      "x": 257.1,
+      "y": -683.0,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:1": {
+      "x": 257.5,
+      "y": -640.3,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:2": {
+      "x": 257.90000000000003,
+      "y": -597.6,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:3": {
+      "x": 258.3,
+      "y": -554.9,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:4": {
+      "x": 258.70000000000005,
+      "y": -512.2,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:5": {
+      "x": 259.1,
+      "y": -469.5,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:6": {
+      "x": 259.5,
+      "y": -426.79999999999995,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:7": {
+      "x": 259.90000000000003,
+      "y": -384.09999999999997,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:8": {
+      "x": 299.20000000000005,
+      "y": -684.1,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:9": {
+      "x": 299.6,
+      "y": -641.4,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:10": {
+      "x": 300.00000000000006,
+      "y": -598.7,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:11": {
+      "x": 300.40000000000003,
+      "y": -556.0,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:12": {
+      "x": 300.80000000000007,
+      "y": -513.3000000000001,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:13": {
+      "x": 301.20000000000005,
+      "y": -470.6,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:14": {
+      "x": 301.6,
+      "y": -427.9,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:15": {
+      "x": 302.00000000000006,
+      "y": -385.2,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:16": {
+      "x": 341.3,
+      "y": -685.2,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:17": {
+      "x": 341.7,
+      "y": -642.5,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:18": {
+      "x": 342.1,
+      "y": -599.8000000000001,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:19": {
+      "x": 342.5,
+      "y": -557.1,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:20": {
+      "x": 342.90000000000003,
+      "y": -514.4000000000001,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:21": {
+      "x": 343.3,
+      "y": -471.7,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:22": {
+      "x": 343.7,
+      "y": -428.99999999999994,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:23": {
+      "x": 344.1,
+      "y": -386.29999999999995,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:24": {
+      "x": 383.40000000000003,
+      "y": -686.3,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:25": {
+      "x": 383.8,
+      "y": -643.5999999999999,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:26": {
+      "x": 384.20000000000005,
+      "y": -600.9,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:27": {
+      "x": 384.6,
+      "y": -558.1999999999999,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:28": {
+      "x": 385.00000000000006,
+      "y": -515.5,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:29": {
+      "x": 385.40000000000003,
+      "y": -472.8,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:30": {
+      "x": 385.8,
+      "y": -430.09999999999997,
+      "desnivel_mm": 19.0
+    },
+    "cementerio:31": {
+      "x": 386.20000000000005,
+      "y": -387.4,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:0": {
+      "x": -205.5,
+      "y": -683.0,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:1": {
+      "x": -205.9,
+      "y": -640.3,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:2": {
+      "x": -206.3,
+      "y": -597.6,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:3": {
+      "x": -206.7,
+      "y": -554.9,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:4": {
+      "x": -207.1,
+      "y": -512.2,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:5": {
+      "x": -207.5,
+      "y": -469.5,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:6": {
+      "x": -207.9,
+      "y": -426.79999999999995,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:7": {
+      "x": -208.3,
+      "y": -384.09999999999997,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:8": {
+      "x": -247.6,
+      "y": -684.1,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:9": {
+      "x": -248.0,
+      "y": -641.4,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:10": {
+      "x": -248.4,
+      "y": -598.7,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:11": {
+      "x": -248.79999999999998,
+      "y": -556.0,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:12": {
+      "x": -249.2,
+      "y": -513.3000000000001,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:13": {
+      "x": -249.6,
+      "y": -470.6,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:14": {
+      "x": -250.0,
+      "y": -427.9,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:15": {
+      "x": -250.4,
+      "y": -385.2,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:16": {
+      "x": -289.7,
+      "y": -685.2,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:17": {
+      "x": -290.1,
+      "y": -642.5,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:18": {
+      "x": -290.5,
+      "y": -599.8000000000001,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:19": {
+      "x": -290.9,
+      "y": -557.1,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:20": {
+      "x": -291.3,
+      "y": -514.4000000000001,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:21": {
+      "x": -291.7,
+      "y": -471.7,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:22": {
+      "x": -292.1,
+      "y": -428.99999999999994,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:23": {
+      "x": -292.5,
+      "y": -386.29999999999995,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:24": {
+      "x": -331.8,
+      "y": -686.3,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:25": {
+      "x": -332.20000000000005,
+      "y": -643.5999999999999,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:26": {
+      "x": -332.6,
+      "y": -600.9,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:27": {
+      "x": -333.0,
+      "y": -558.1999999999999,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:28": {
+      "x": -333.4,
+      "y": -515.5,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:29": {
+      "x": -333.8,
+      "y": -472.8,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:30": {
+      "x": -334.20000000000005,
+      "y": -430.09999999999997,
+      "desnivel_mm": 19.0
+    },
+    "cementerio_jugador:31": {
+      "x": -334.6,
+      "y": -387.4,
+      "desnivel_mm": 19.0
+    },
+    "reserva:dama_negra": {
+      "x": -205.5,
+      "y": -670.9
+    },
+    "reserva:dama_blanca": {
+      "x": -205,
+      "y": -619.6
+    }
+  },
   "objetos": [],
-  "zonas_prohibidas": []
+  "zonas_prohibidas": [],
+  "modo_pose": "brida",
+  "orientacion": [
+    177.7786,
+    -2.3812,
+    -82.0584
+  ],
+  "agarre": {
+    "z_referencia_mm": 225.6,
+    "margen_agarre_mm": 20.0,
+    "giro_grados": 45.0,
+    "altura_segura_mm": 90.0,
+    "holgura_traslado_mm": 15.0,
+    "velocidad_bajada": 10,
+    "aceleracion_bajada": 5,
+    "elevacion_al_soltar_mm": 4.0,
+    "desnivel_cementerio_mm": 19.0,
+    "holgura_cementerio_mm": 2.0,
+    "apertura_extra_soltar": 0.4,
+    "velocidad_global": 50,
+    "aceleracion": 15,
+    "velocidad": 50
+  },
+  "perfiles": {
+    "p": {
+      "margen_mm": 20.0,
+      "apertura": 0.71,
+      "giro_grados": 45.0,
+      "alto_mm": 42.0
+    },
+    "n": {
+      "margen_mm": 27.5,
+      "apertura": 0.84,
+      "giro_grados": 45.0,
+      "alto_mm": 55.0
+    },
+    "b": {
+      "margen_mm": 29.0,
+      "apertura": 0.85,
+      "giro_grados": 45.0,
+      "alto_mm": 58.0
+    },
+    "r": {
+      "margen_mm": 22.0,
+      "apertura": 1.0,
+      "giro_grados": 35.0,
+      "alto_mm": 44.0
+    },
+    "q": {
+      "margen_mm": 31.5,
+      "apertura": 0.84,
+      "giro_grados": 45.0,
+      "alto_mm": 63.0
+    },
+    "k": {
+      "margen_mm": 37.0,
+      "apertura": 0.87,
+      "giro_grados": 45.0,
+      "alto_mm": 74.0
+    },
+    "defecto": {
+      "margen_mm": 20.0,
+      "apertura": 0.71,
+      "giro_grados": 45.0,
+      "alto_mm": 42.0
+    }
+  }
 }
