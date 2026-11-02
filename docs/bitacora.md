@@ -65,3 +65,12 @@
 - Verificar en el laboratorio que el URDF coincide con los ángulos del controlador (`herramientas/verificar_geometria.py`).
 - Rutinas guardadas del ajedrez copiadas a `celda/rutinas/` (formato del ajedrez); falta el ejecutor de rutinas (fase 3).
 - El planificador del ajedrez (capturas, enroque…) sigue en el ajedrez; produce pasos `(desde, hasta, perfil)` para `ejecutar_pasos` (fase 5).
+
+### Modelo 3D real del brazo (2026-11-02)
+- El panel carga el `dobot_cr5.glb` (CAD oficial, el del ajedrez, copiado a `servidor/panel/modelos/`; el decodificador Draco se baja de unpkg) con la pinza DH (cuerpo y dos dedos que siguen el ancho real). El esqueleto queda solo de respaldo si el modelo no carga.
+- **El simulador y el dibujo usan la misma geometría, la del GLB** (antes: un modelo esquemático y, después, el URDF del proyecto). Medido en el navegador: las 6 articulaciones del modelo 3D coinciden con la cinemática del servidor a ≤ 0,065 mm y la punta de la pinza cae a 0,06 mm de la punta calculada.
+- **Por qué se dejó el URDF para la cinemática:** el URDF del proyecto pone la brida apuntando hacia ARRIBA en pose cero (la estructura estándar de los CR es de lado) y con él tus ángulos reales no tenían sentido (el descanso real daba la herramienta en una dirección rara y el tablero pedía J5 entre 8° y 134°). Con la geometría del CAD: el descanso real (J5 = 90,45°) deja la herramienta apuntando recto hacia abajo, y las 4 esquinas del tablero salen con J5 ≈ 90°. Eso apoya el modelo, pero **no lo prueba**: falta `herramientas/verificar_geometria.py` en el laboratorio.
+- Los otros dos modelos disponibles (URDF oficial de ROS del CR5 y el URDF del proyecto) tienen desfases laterales distintos entre sí y del GLB; si el laboratorio da diferencias, el lugar a tocar es `ORIGENES`/`EJES` en `simulador/cinematica.py` (y `MAPA_GLB`, que fija hacia dónde mira la base).
+- `seguridad/geometria.py` (URDF) sigue validando los movimientos por ángulos que da el usuario (`mover_articulaciones`). Con el brazo real, los ángulos de `ir_a` a un punto enseñado NO pasan por esa validación.
+- Con el brazo real el panel mueve el GLB con los ángulos del controlador (como el front del ajedrez); si el modelo no coincidiera con el brazo, el dibujo se vería mal pero el brazo no se afecta.
+- Los archivos del panel se sirven con `Cache-Control: no-cache` (un navegador se quedaba con el JS viejo tras actualizar).

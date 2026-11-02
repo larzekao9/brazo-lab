@@ -1,11 +1,12 @@
-"""Cinemática del CR5 con las medidas del URDF del proyecto (la misma geometría que usa el validador de seguridad).
+"""Cinemática del CR5AS con la geometría del CAD oficial (`servidor/panel/modelos/dobot_cr5.glb`): el simulador y el dibujo 3D usan la MISMA geometría.
 
-Antes el simulador usaba un modelo esquemático de dos eslabones y sus ángulos no servían para dibujar el brazo real. Ahora la cinemática
-directa es la del URDF y la inversa es numérica (mínimos cuadrados amortiguados con partida en los ángulos actuales, para seguir una misma
-solución del brazo). Las poses son las de la BRIDA, `(x, y, z, rx, ry, rz)` en mm y grados, con la convención `R = Rz(rz) · Ry(ry) · Rx(rx)`.
+La cinemática directa sale de los nodos `J1`…`J6` del GLB (en mm, con Y hacia arriba) y la inversa es numérica (mínimos cuadrados amortiguados que parten de los
+ángulos actuales, para seguir una misma solución del brazo). Las poses son las de la BRIDA, `(x, y, z, rx, ry, rz)` en mm y grados, con `R = Rz(rz) · Ry(ry) · Rx(rx)`
+y el eje Z de la brida = el eje de J6 (la dirección de la herramienta). Estructura estándar de los CR: en pose cero el brazo está recto hacia arriba y la brida mira de lado.
 
-Lo que NO está comprobado contra el brazo real: que el URDF y los ángulos del controlador coincidan (`control_brazo.verificar_geometria` del
-ajedrez compara las dos lecturas en el laboratorio; ver sección 9 del plan) ni que la convención de Euler sea la de DobotStudio.
+NO está comprobado contra el brazo real: que esta geometría y los ángulos del controlador coincidan (`herramientas/verificar_geometria.py`, solo lectura), ni la
+convención de Euler de DobotStudio, ni la orientación (giro) de la base. El URDF del proyecto (`seguridad/geometria.py`) tiene otra estructura de muñeca y se usa
+solo para validar movimientos por ángulos que da el usuario. El brazo real no depende de nada de esto: el controlador resuelve su propia cinemática.
 """
 from __future__ import annotations
 
@@ -22,8 +23,14 @@ ITERACIONES_MAXIMAS = 120
 AMORTIGUACION = 1e-3
 PASO_NUMERICO_RAD = 1e-5
 LIMITES = np.radians(np.array(geometria.LIMITES_ARTICULACIONES, dtype=float))
-ORIGENES = [np.array(o) * 1000.0 for o, _ in geometria.JUNTAS]
-EJES = [e for _, e in geometria.JUNTAS]
+# Nodos del GLB en pose cero (mm, Y arriba): posición de cada articulación y eje de giro local.
+_POSICIONES_GLB = [(0, 147, 0), (0, 147, 147), (0, 574, 25), (0, 931, 141), (0, 1047, 141), (0, 1047, 246)]
+_EJES_GLB = [(0, 1, 0), (0, 0, 1), (0, 0, 1), (0, 0, 1), (0, 1, 0), (0, 0, 1)]
+# Del sistema del GLB (Y arriba) al de las poses del brazo (Z arriba): Rx(+90°) y un giro de la base de +90° alrededor de Z (la base mira hacia el lado de la mesa).
+MAPA_GLB = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]], dtype=float) @ np.array([[1, 0, 0], [0, 0, -1], [0, 1, 0]], dtype=float)
+_RELATIVAS = [np.array(_POSICIONES_GLB[0], float)] + [np.array(_POSICIONES_GLB[i], float) - np.array(_POSICIONES_GLB[i - 1], float) for i in range(1, 6)]
+ORIGENES = [MAPA_GLB @ o for o in _RELATIVAS]
+EJES = [tuple(MAPA_GLB @ np.array(e, float)) for e in _EJES_GLB]
 
 
 def _normalizar_grados(valor: float) -> float:
@@ -58,7 +65,7 @@ def fk(angulos_grados) -> tuple[np.ndarray, np.ndarray]:
     for origen, eje, g in zip(ORIGENES, EJES, angulos_grados):
         p = p + R @ origen
         R = R @ _rotacion(eje, math.radians(g))
-    return R, p
+    return R @ MAPA_GLB, p  # el eje Z de la brida es el eje de J6 (la herramienta), que en el GLB es su eje local Z
 
 
 def pose_para_angulos(angulos: tuple[float, ...]) -> Pose:

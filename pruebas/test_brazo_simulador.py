@@ -35,7 +35,7 @@ def test_la_pose_esta_en_el_tcp(brazo):
     brazo.mover_a(0, -500, 100)
     x, y, z, rx, *_ = brazo.pose()
     assert (round(x), round(y), round(z)) == (0, -500, 100)
-    assert abs(rx) == 180
+    assert abs(rx) == pytest.approx(180, abs=0.01)
     # el controlador (la brida) está 217 mm más arriba
     assert round(brazo._cliente.pose()[2]) == 100 + 217
 

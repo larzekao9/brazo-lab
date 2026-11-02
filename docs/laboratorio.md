@@ -9,7 +9,7 @@ volvió a medir: lo que funcionó el 2026-10 sigue valiendo.
 ```bash
 python3 -m venv ~/.venvs/brazo-base && source ~/.venvs/brazo-base/bin/activate
 pip install -e ".[servidor,dev]"
-pytest -q                                              # 68 pruebas, sin brazo
+pytest -q                                              # 79 pruebas, sin brazo
 python herramientas/ensayar_pieza.py e2 e4 p           # las poses que mandaría, zonas y alcance: no conecta con nada
 ```
 
@@ -41,7 +41,7 @@ Si cierra en el aire (no hay pieza) o se le cae, se detiene con un mensaje que d
 
 ## Qué NO está comprobado hasta que lo hagas en el laboratorio
 
-- Que los ángulos del controlador coincidan con el URDF (paso 3). Afecta al simulador, a la validación de movimientos por ángulos del usuario y al dibujo.
+- Que los ángulos del controlador coincidan con la geometría del modelo (paso 3: `verificar_geometria.py`). Afecta al simulador, al dibujo 3D del brazo real y a la validación de movimientos por ángulos del usuario. Indicios a favor: con esa geometría tu descanso real deja la herramienta apuntando hacia abajo y las esquinas del tablero salen con J5 ≈ 90°.
 - El TCP «de verdad» (definir la herramienta en el controlador con `SetTool`): mientras tanto la celda usa el modo `brida`, el que ya funcionó. Medí el largo de la pinza y
   probá `SetTool` cuando quieras pasar al modo `tcp` (poses en la punta, giros de muñeca sin correr la punta).
 - `InverseSolution`, las medidas de la mesa y las otras herramientas (lista de la sección 9 de `PLAN_BRAZO_BASE.md`).

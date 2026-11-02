@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/addons/loaders/DRACOLoader.js";
 
 const $ = (id) => document.getElementById(id);
 let estado = { conectado: false };
@@ -7,6 +9,7 @@ let celda = null;
 const vis = {};  // posiciones que se dibujan: p{i}x/y/z (brazo), tx/ty/tz (punta), o:{nombre}x/y/z (objetos)
 const reducido = matchMedia("(prefers-reduced-motion: reduce)");
 let brazoMallas = null;
+let robot = null;  // el modelo 3D del CR5 cuando termina de cargar (ver más abajo)
 
 // ---------- API ----------
 async function api(ruta, cuerpo, metodo) {
@@ -84,9 +87,10 @@ function suavizar(objetivo) {
   if (nuevo || reducido.matches) { Object.assign(vis, objetivo); return; }
   gsap.to(vis, { ...objetivo, duration: 0.13, ease: "none", overwrite: "auto" });
 }
-function dibujarBrazo(puntos, tcp) {
+function dibujarBrazo(puntos, tcp, angulos, ancho) {
   if (!puntos?.length) return;
-  const objetivo = { tx: tcp[0], ty: tcp[1], tz: tcp[2] };
+  const objetivo = { tx: tcp[0], ty: tcp[1], tz: tcp[2], ancho: ancho ?? 26 };
+  (angulos || []).forEach((g, i) => { objetivo[`a${i}`] = g; });
   puntos.forEach((p, i) => { objetivo[`p${i}x`] = p[0]; objetivo[`p${i}y`] = p[1]; objetivo[`p${i}z`] = p[2]; });
   if (!brazoMallas || brazoMallas.n !== puntos.length) {
     vaciar(grupoBrazo);
@@ -105,7 +109,15 @@ function moverObjetos(posiciones) {
   suavizar(objetivo);
 }
 function pintar() {
+  if (robot && "a0" in vis) {
+    // los ángulos del controlador pueden dar saltos de 360° al envolverse: se interpola el camino corto
+    robot.j[0].rotation.y = THREE.MathUtils.degToRad(vis.a0); robot.j[1].rotation.z = THREE.MathUtils.degToRad(vis.a1);
+    robot.j[2].rotation.z = THREE.MathUtils.degToRad(vis.a2); robot.j[3].rotation.z = THREE.MathUtils.degToRad(vis.a3);
+    robot.j[4].rotation.y = THREE.MathUtils.degToRad(vis.a4); robot.j[5].rotation.z = THREE.MathUtils.degToRad(vis.a5);
+    robot.dedoA.position.x = -(vis.ancho / 2 + 4); robot.dedoB.position.x = vis.ancho / 2 + 4;
+  }
   if (brazoMallas) {
+    brazoMallas.linea.visible = !robot; brazoMallas.esferas.forEach((m) => (m.visible = !robot));
     const { n, linea, esferas, punta } = brazoMallas, pos = linea.geometry.attributes.position;
     for (let i = 0; i < n; i++) { const x = vis[`p${i}x`], y = vis[`p${i}y`], z = vis[`p${i}z`]; esferas[i].position.set(x, y, z); pos.setXYZ(i, x, y, z); }
     pos.needsUpdate = true; punta.position.set(vis.tx, vis.ty, vis.tz);
@@ -121,6 +133,31 @@ function irAVista(nombre) {
   gsap.to(camara.position, { x, y, z, duration: 0.8, ease: "power2.inOut", overwrite: true });
 }
 document.querySelectorAll("[data-vista]").forEach((b) => (b.onclick = () => irAVista(b.dataset.vista)));
+
+// ---------- modelo 3D del CR5 (el CAD oficial, el mismo del ajedrez) ----------
+// La cinemática del servidor usa la geometría de este mismo GLB: el sistema del GLB (Y arriba) pasa al del brazo (Z arriba) con la matriz MAPA_GLB, y cada
+// articulación gira +ángulo alrededor de su eje local (J1 y J5 sobre Y; J2, J3, J4 y J6 sobre Z), igual que `servidor/panel` del ajedrez con los ángulos reales.
+const draco = new DRACOLoader(); draco.setDecoderPath("https://unpkg.com/three@0.160.0/examples/jsm/libs/draco/gltf/");
+const cargador = new GLTFLoader(); cargador.setDRACOLoader(draco);
+const PIELES = ["J3SkinKey1", "J3SkinKey2", "J3SkinKey3", "J3SkinKey4", "J3SkinKey5", "J3SkinKey6", "J3SkinKey7", "J4SkinKey1", "J4SkinKey2", "J4SkinKey3", "J5SkinKey1", "J5SkinKey2", "J5SkinKey3"];
+cargador.load("/panel/modelos/dobot_cr5.glb", (gltf) => {
+  const raiz = new THREE.Group();
+  raiz.matrixAutoUpdate = false;
+  raiz.matrix.set(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1);  // MAPA_GLB de cinematica.py
+  const modelo = gltf.scene;
+  for (const n of PIELES) { const o = modelo.getObjectByName(n); if (o) o.visible = false; }  // huesos auxiliares del CAD
+  modelo.traverse((m) => { if (m.isMesh && m.material) { m.material.metalness = Math.max(m.material.metalness || 0, 0.35); m.material.roughness = Math.min(m.material.roughness || 0.6, 0.55); } });
+  raiz.add(modelo); escena.add(raiz);
+  const tool = modelo.getObjectByName("TOOL") || modelo.getObjectByName("J6");
+  const pinza = new THREE.Group();  // pinza DH PGE-50: cuerpo de 117 mm y dos dedos largos; el eje Z local de la brida es la dirección de la herramienta
+  const negro = new THREE.MeshStandardMaterial({ color: 0x1f2328, metalness: 0.4, roughness: 0.5 }), dedo = new THREE.MeshStandardMaterial({ color: 0xd0d4da, metalness: 0.2, roughness: 0.6 });
+  const cuerpo = new THREE.Mesh(new THREE.BoxGeometry(60, 29, 117), negro); cuerpo.position.z = 58.5;
+  const dedoA = new THREE.Mesh(new THREE.BoxGeometry(8, 14, 100), dedo), dedoB = dedoA.clone();
+  dedoA.position.z = dedoB.position.z = 167;
+  pinza.add(cuerpo, dedoA, dedoB); (tool || modelo).add(pinza);
+  robot = { raiz, modelo, j: [1, 2, 3, 4, 5, 6].map((i) => modelo.getObjectByName("J" + i)), dedoA, dedoB };
+  window.__panel = { THREE, robot, escena, camara, vis };
+}, undefined, (e) => console.warn("Sin modelo 3D, se dibuja el esqueleto:", e));
 
 // ---------- telemetría ----------
 function conectarWS() {
@@ -141,7 +178,7 @@ async function recibir(e) {
   if ([9, 11].includes(e.modo)) ins.className = "insignia mal";
   if (ins.textContent !== antes && !reducido.matches) gsap.fromTo(ins, { scale: 1.12 }, { scale: 1, duration: 0.35, ease: "back.out(3)" });
   if (e.conectado && e.pose) {
-    dibujarBrazo(e.brazo_puntos, e.pose);
+    dibujarBrazo(e.brazo_puntos, e.punta || e.pose, e.angulos, e.herramienta?.ancho_mm);
     moverObjetos(e.objetos);
     const [x, y, z] = e.pose;
     $("estado").textContent = `TCP  x ${x.toFixed(1)}  y ${y.toFixed(1)}  z ${z.toFixed(1)}\nÁngulos ${e.angulos.map((a) => a.toFixed(1)).join("  ")}\nTarea: ${e.tarea.nombre ?? "-"} (${e.tarea.estado})${e.tarea.error ? "\n" + e.tarea.error : ""}${e.sostiene ? "\nSostiene: " + e.sostiene : ""}`;

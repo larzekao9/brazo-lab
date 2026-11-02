@@ -6,7 +6,7 @@ import time
 
 from brazo_base import Brazo, Celda, ErrorBrazo
 from brazo_base.celda.archivos import celda_a_dict
-from brazo_base.seguridad import geometria
+from brazo_base.simulador import cinematica
 
 
 class Conflicto(ErrorBrazo):
@@ -84,10 +84,11 @@ class ServicioBrazo:
 
     # --- lectura ----------------------------------------------------------------------------------------------------------
     def _dibujo_del_brazo(self, brazo: Brazo, angulos) -> list[list[float]]:
-        """Puntos (mm) para dibujar el brazo: base, hombro, codo, muñecas, brida y punta, con la geometría del URDF (la misma en simulador y real)."""
-        largo = brazo.largo_mm
-        p = geometria.puntos_del_brazo(angulos, largo / 1000 if largo else geometria.LARGO_PINZA_DEFECTO)
-        return [list(a * 1000) for a in p["articulaciones"]] + [list(p["punta"] * 1000)]
+        """Puntos (mm) para dibujar el brazo (base y J1 a J6) y, al final, la punta de la herramienta, con la misma cinemática del simulador y del modelo 3D."""
+        puntos = [list(p) for p in cinematica.puntos_del_brazo(tuple(angulos))]
+        R, p = cinematica.fk(tuple(angulos))
+        punta = p + R[:, 2] * brazo.largo_mm
+        return puntos + [[float(punta[0]), float(punta[1]), float(punta[2])]]
 
     def estado(self) -> dict:
         with self._cerrojo:
@@ -99,7 +100,8 @@ class ServicioBrazo:
         try:
             estado = brazo.estado()
             base.update(estado)
-            base["brazo_puntos"] = self._dibujo_del_brazo(brazo, estado["angulos"])
+            puntos = self._dibujo_del_brazo(brazo, estado["angulos"])
+            base["brazo_puntos"], base["punta"] = puntos, puntos[-1]
             base["objetos"] = {n: list(p) for n, p in brazo.posiciones_objetos().items()}
         except ErrorBrazo as error:
             base["error_lectura"] = str(error)

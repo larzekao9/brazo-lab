@@ -37,7 +37,7 @@ pip install -e ".[servidor]"
 python -m brazo_base.servidor      # http://127.0.0.1:8000 (panel en /, API en /docs)
 ```
 
-El panel (3D, mover a mano, herramienta, puntos, llevar un objeto, practicar fallos) es HTML + JS sin paso de compilación; carga Three.js (unpkg) y GSAP (cdnjs) desde
+El panel (modelo 3D real del CR5 con su pinza, mover a mano, herramienta, puntos, llevar un objeto, practicar fallos) es HTML + JS sin paso de compilación; carga Three.js (unpkg) y GSAP (cdnjs) desde
 internet, así que necesita conexión la primera vez. Ver `docs/api_http.md` y `ejemplos/06_api_http_desde_javascript.html`.
 
 ## Reglas que no se rompen
@@ -63,8 +63,8 @@ internet, así que necesita conexión la primera vez. Ver `docs/api_http.md` y `
 
 ## Limitaciones conocidas del simulador
 
-La cinemática es **esquemática** (herramienta vertical, sin límites reales de articulación) y no hay choques del brazo contra objetos: solo las
-zonas prohibidas y los límites de la mesa. Los ángulos del simulador no coinciden con los del CR5 real; las poses (x, y, z) sí.
+No hay choques del brazo contra objetos: solo las
+zonas prohibidas y los límites de la mesa. La cinemática del simulador usa la geometría del CAD oficial del CR5AS (la misma del modelo 3D); falta comprobar en el laboratorio que sus ángulos coincidan con los del controlador (`herramientas/verificar_geometria.py`).
 
 Fallos para practicar: `brazo.simulador.provocar("alarma" | "colision" | "no_tcp" | "pinza_no_responde" | "pieza_cae")`.
 

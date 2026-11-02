@@ -83,6 +83,13 @@ def crear_app(servicio: ServicioBrazo | None = None) -> FastAPI:
     app = FastAPI(title="brazo-base", version="0.1.0", description="Controla el Dobot CR5AS (simulador o real) por HTTP")
     app.add_middleware(CORSMiddleware, allow_origin_regex=ORIGENES_LOCALES, allow_methods=["*"], allow_headers=["*"])
 
+    @app.middleware("http")
+    async def _sin_cache_en_el_panel(request: Request, call_next):
+        respuesta = await call_next(request)
+        if request.url.path == "/" or request.url.path.startswith("/panel/"):
+            respuesta.headers["Cache-Control"] = "no-cache"
+        return respuesta
+
     @app.exception_handler(ErrorBrazo)
     async def _error_brazo(_: Request, error: ErrorBrazo):
         codigo = 409 if isinstance(error, (Conflicto, SinConexion, NoHabilitado, NoAgarro)) else 503 if isinstance(error, (HerramientaNoResponde, ErrorDelControlador)) else 422
