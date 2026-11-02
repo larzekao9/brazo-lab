@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import threading
 import time
+from pathlib import Path
 
 from brazo_base import Brazo, Celda, ErrorBrazo
 from brazo_base.celda.archivos import celda_a_dict
+from brazo_base.scripts.ejecutor import EjecutorScripts, Validados
 from brazo_base.simulador import cinematica
 
 
@@ -14,7 +16,10 @@ class Conflicto(ErrorBrazo):
 
 
 class ServicioBrazo:
-    def __init__(self) -> None:
+    def __init__(self, datos_dir: str | Path | None = None) -> None:
+        self.datos_dir = Path(datos_dir) if datos_dir else Path.home() / ".brazo-base"
+        self.scripts = EjecutorScripts(Validados(self.datos_dir / "scripts_validados.json"))
+        self.destino: str | None = None
         self.brazo: Brazo | None = None
         self.tarea: dict = {"id": 0, "nombre": None, "estado": "libre", "error": None, "resultado": None}
         self._cerrojo = threading.RLock()
@@ -25,21 +30,22 @@ class ServicioBrazo:
         with self._cerrojo:
             if self.brazo is not None:
                 raise Conflicto("Ya hay una conexión: desconectá primero")
-            brazo = Brazo(destino=destino, celda=celda, velocidad=velocidad, velocidad_simulacion=velocidad_simulacion)
+            brazo = Brazo(destino=destino, celda=celda, velocidad=velocidad, velocidad_simulacion=velocidad_simulacion, rutinas_dir=self.datos_dir / "rutinas" if celda is None and destino == "simulador" else None)
             brazo.conectar()
-            self.brazo = brazo
+            self.brazo, self.destino = brazo, destino
 
     def desconectar(self) -> None:
         with self._cerrojo:
             if self.brazo is None:
                 return
+            self.scripts.parar()
             self.brazo.parar()
             hilo = self._hilo
         if hilo is not None:
             hilo.join(timeout=5)
         with self._cerrojo:
             self.brazo.desconectar()
-            self.brazo = None
+            self.brazo, self.destino = None, None
             self.tarea = {**self.tarea, "estado": "libre"}
 
     def exigir_brazo(self) -> Brazo:

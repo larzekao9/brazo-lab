@@ -22,6 +22,9 @@ class Herramienta(ABC):
     def inicializar(self) -> None:
         """Deja la herramienta lista para usarse (algunas no necesitan nada)."""
 
+    def ajustar(self, fuerza: int | None = None, velocidad: int | None = None) -> None:
+        """Cambia la fuerza y la velocidad de la herramienta (las que no tengan, las ignoran)."""
+
     def preparar(self) -> None:
         """Lo que hace falta antes de usarla tras `conectar` (por defecto, inicializarla). La pinza solo se mueve si no estaba ya inicializada."""
         self.inicializar()

@@ -3,20 +3,20 @@
 <style>body{font:16px system-ui;max-width:640px;margin:2rem auto;padding:0 16px}button{font:inherit;padding:6px 14px;margin:4px 4px 4px 0}pre{background:#0001;padding:8px;border-radius:6px;white-space:pre-wrap}</style></head>
 <body>
 <h1>Mover el brazo desde una página</h1>
-<p>Primero arrancá el servidor: <code>python -m brazo_base.servidor</code> y abrí este archivo.</p>
+<p>Primero arrancá el servidor: <code>python -m brazo_base.servidor</code> y abrí esta página desde él: <a href="/ejemplo-06">http://127.0.0.1:8000/ejemplo-06</a>. (Un archivo abierto con <code>file://</code> no puede llamar a la API: el servidor rechaza los pedidos de orígenes que no son de localhost.)</p>
 <button onclick="paso('/conectar',{velocidad_simulacion:5}).then(()=>paso('/habilitar',{}))">1. Conectar (simulador)</button>
 <button onclick="paso('/mover',{x:0,y:-500,z:150})">2. Ir a (0, -500, 150)</button>
 <button onclick="paso('/llevar',{desde:'caja_roja',hasta:'bandeja'})">3. Llevar la caja a la bandeja</button>
 <button onclick="paso('/parar',{})">PARAR</button>
 <pre id="salida">…</pre>
 <script>
-const API = "http://127.0.0.1:8000";
+const API = location.origin;
 async function paso(ruta, cuerpo) {
   const r = await fetch(API + ruta, {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(cuerpo)});
   const datos = await r.json();
   salida.textContent = r.status + " " + ruta + "\n" + JSON.stringify(datos.error ? datos : (datos.tarea || datos), null, 2);
 }
 // La telemetría llega por WebSocket varias veces por segundo
-const ws = new WebSocket("ws://127.0.0.1:8000/telemetria");
+const ws = new WebSocket(`ws://${location.host}/telemetria`);
 ws.onmessage = (e) => { const d = JSON.parse(e.data); if (d.pose) document.title = "TCP z=" + d.pose[2].toFixed(0); };
 </script></body></html>

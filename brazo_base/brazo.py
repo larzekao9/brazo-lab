@@ -17,6 +17,8 @@ from brazo_base.celda import Celda, cargar_celda, celda_demo
 from brazo_base.conexion.cliente_dobot import MODO_LIBRE, ClienteDobot, ErrorDobot
 from brazo_base.errores import ErrorBrazo, ErrorDelControlador, HerramientaNoResponde, NoAgarro, NoHabilitado, RecorridoProhibido, SinConexion
 from brazo_base.herramientas import herramienta_desde_config
+from brazo_base.rutinas import Rutinas
+from brazo_base.rutinas.rutinas import SALTO_MAXIMO_GRADOS, describir_paso, desenrollar
 from brazo_base.seguridad import geometria, perfiles, trayectos, validador, zonas
 from brazo_base.seguridad.validador import Tramo
 
@@ -47,13 +49,14 @@ class _Zonas:
 
 
 class Brazo:
-    def __init__(self, destino: str = "simulador", celda: Celda | str | Path | None = None, velocidad: int | None = None, velocidad_simulacion: float = 1.0):
+    def __init__(self, destino: str = "simulador", celda: Celda | str | Path | None = None, velocidad: int | None = None, velocidad_simulacion: float = 1.0, rutinas_dir: str | Path | None = None):
         """
         Args:
             destino: `"simulador"` (por defecto, nunca toca el brazo) o `"real"` (exige pasar la celda del laboratorio).
             celda: una `Celda`, la ruta a un `celda.json`, o `None` para la celda de práctica (solo simulador).
             velocidad: porcentaje de velocidad (1 a 100). Real: 20 por defecto y con tope en `seguridad.velocidad_maxima_real` de la celda.
             velocidad_simulacion: cuántas veces más rápido que el tiempo real corre el simulador.
+            rutinas_dir: dónde se guardan las rutinas (por defecto `rutinas/` junto a la celda; con la celda de práctica, `~/.brazo-base/rutinas`).
         """
         if destino not in ("simulador", "real"):
             raise ErrorBrazo(f"destino tiene que ser «simulador» o «real», no «{destino}»")
@@ -80,6 +83,7 @@ class Brazo:
         self._habilitado = False
         self._sostiene: str | None = None
         self._posiciones = {n: tuple(o.posicion) for n, o in celda.objetos.items()}
+        self.rutinas = Rutinas.de_celda(celda, Path(rutinas_dir) if rutinas_dir else None)
 
     # --- conexión -----------------------------------------------------------------------------------------------------------
     def conectar(self) -> None:
@@ -478,5 +482,83 @@ class Brazo:
         self.herramienta.abrir_a(poses.apertura_al_soltar(perfil))
         ir(poses.pose(hasta, sobre, perfil), True, **lento)
 
-    def ejecutar_rutina(self, nombre: str) -> None:
-        raise NotImplementedError("Las rutinas llegan en la fase 3 (ver docs/bitacora.md)")
+    def ejecutar_rutina(self, nombre: str, factor: float = 1.0, confirmar: bool = False, avance=None) -> None:
+        """Corre la rutina `nombre` paso a paso. `factor` (0,25 a 2) multiplica la velocidad de cada paso.
+
+        En el simulador corre sin más y, si termina completa, queda validada. En el brazo real exige que esté validada con exactamente esos pasos y `confirmar=True`, y la
+        velocidad no pasa de `velocidad_maxima_real` de la celda. La primera pose no puede quedar a más de `SALTO_MAXIMO_GRADOS` de donde está el brazo.
+        `avance(numero, total, texto)` se llama antes de cada paso (para mostrarlo).
+        """
+        c = self._listo()
+        planos, huella, tope = self.comprobar_rutina(nombre, factor, confirmar)
+        velocidad_inicial = c.velocidad_global
+        simulador = self.destino == "simulador"
+        try:
+            for numero, paso in enumerate(planos, start=1):
+                if c.cancelado:
+                    raise ErrorDelControlador("Cancelado por el usuario")
+                if avance:
+                    avance(numero, len(planos), describir_paso(paso))
+                if paso["tipo"] == "articulaciones":
+                    c.velocidad_global = max(1, min(tope, round(paso["velocidad"] * factor)))
+                    self._ejecutar(lambda: (c.enviar(f"SpeedFactor({c.velocidad_global})"), c.mover_a_angulos(tuple(paso["angulos"]))))
+                elif paso["tipo"] == "pinza":
+                    self.herramienta.ajustar(paso.get("fuerza"), paso.get("velocidad"))
+                    self.herramienta.abrir_a(paso["apertura"] / 1000)
+                else:
+                    fin = time.monotonic() + paso["segundos"]
+                    while time.monotonic() < fin:  # en tramos cortos para que parar() corte también las esperas
+                        if c.cancelado:
+                            raise ErrorDelControlador("Cancelado por el usuario")
+                        time.sleep(min(0.1, max(0.0, fin - time.monotonic())))
+        finally:
+            c.velocidad_global = velocidad_inicial
+            try:
+                c.enviar(f"SpeedFactor({velocidad_inicial})")
+            except ErrorDobot:
+                pass
+        if simulador:
+            self.rutinas.marcar_validada(nombre, huella)
+
+    def comprobar_rutina(self, nombre: str, factor: float = 1.0, confirmar: bool = False) -> tuple[list[dict], str, int]:
+        """Todo lo que se comprueba ANTES de mover una rutina; no mueve nada. Devuelve `(pasos listos, huella, tope de velocidad)` o lanza el error que corresponde."""
+        c = self._listo()
+        if not 0.25 <= factor <= 2.0:
+            raise ErrorBrazo("El factor de velocidad debe estar entre 0,25 y 2")
+        planos, huella = self.rutinas.pasos_para_ejecutar(nombre)
+        simulador = self.destino == "simulador"
+        if not simulador:
+            if not self.rutinas.obtener(nombre)["validada"]:
+                raise ErrorBrazo("Esta rutina todavía no corrió completa en el simulador con estos pasos. Corrala en el simulador hasta que termine (queda «validada») y después en el real. Si cambiás un paso, hay que repetirlo.")
+            if not confirmar:
+                raise ErrorBrazo("Confirmá que querés ejecutarla en el brazo real (confirmar=True)")
+        tope = 100 if simulador else int(self.celda.seguridad.get("velocidad_maxima_real", 50))
+        if any(p["tipo"] == "pinza" for p in planos) and not self.herramienta.estado().get("inicializada", True):
+            raise HerramientaNoResponde("La rutina usa la herramienta y todavía no está inicializada: llamá a brazo.herramienta.inicializar()")
+        largo = self.largo_mm / 1000 if self.largo_mm else geometria.LARGO_PINZA_DEFECTO
+        zonas_celda = _Zonas(self.celda)
+        for numero, paso in enumerate(planos, start=1):  # todo se comprueba ANTES de mover: la rutina no puede dejar al brazo a medias por una zona prohibida
+            if paso["tipo"] == "articulaciones" and (problemas := zonas.problemas_de_brazo(paso["angulos"], zonas_celda, largo)):
+                raise RecorridoProhibido([f"Paso {numero}: {p}" for p in problemas])
+        actuales = list(self.angulos())
+        if any(p["tipo"] == "articulaciones" for p in planos):
+            planos = desenrollar(planos, actuales)
+            primera = next(p for p in planos if p["tipo"] == "articulaciones")
+            for j, (actual, pedido) in enumerate(zip(actuales, primera["angulos"]), start=1):
+                if abs(actual - pedido) > SALTO_MAXIMO_GRADOS:
+                    raise ErrorBrazo(f"J{j} está a {abs(actual - pedido):.0f}° de la primera pose: llevá el brazo cerca (por ejemplo al punto «descanso») y probá de nuevo")
+            if problemas := geometria.problemas_de_trayectoria(actuales, primera["angulos"], self.celda.agarre.get("z_referencia_mm") if self.celda.modo_pose == "brida" else None, largo):
+                raise RecorridoProhibido([f"El camino desde donde está el brazo hasta la primera pose pasaría por una pose imposible: {problemas[0]}. Llevá el brazo antes al punto «descanso»"])
+        return planos, huella, tope
+
+    # --- lugares enseñados con el brazo --------------------------------------------------------------------------------------
+    def guardar_lugar(self, nombre: str, z: float | None = None) -> dict:
+        """Guarda como lugar con nombre el punto donde está ahora la herramienta: `(x, y, z)` de `pose()`, o la `z` que se dé (la altura de la superficie donde se apoya algo).
+
+        Queda en la celda en memoria; para guardarla en el disco, `brazo_base.celda.guardar_celda(brazo.celda)`.
+        """
+        if not nombre.isidentifier() and not all(c.isalnum() or c in "_:-" for c in nombre):
+            raise ErrorBrazo("El nombre del lugar solo puede tener letras, números, _ y -")
+        x, y, zp, *_ = self.pose()
+        self.celda.lugares[nombre] = {"x": round(x, 3), "y": round(y, 3), "z": round(zp if z is None else float(z), 3)}
+        return self.celda.lugares[nombre]

@@ -181,6 +181,8 @@ class ClienteDobot:
         inicio = time.monotonic()
         se_movio = False
         while time.monotonic() - inicio < limite_segundos:
+            if self.cancelado:  # el usuario paró: no hay nada que esperar (cancelar() ya mandó Stop())
+                raise ErrorDobot("Cancelado por el usuario")
             modo = self.modo()
             if modo in MODOS_DE_FALLA:
                 self.detener()
