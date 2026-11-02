@@ -16,8 +16,7 @@ async function api(ruta, cuerpo, metodo) {
   const r = await fetch(ruta, { method: metodo || (cuerpo === undefined ? "GET" : "POST"), headers: { "Content-Type": "application/json" }, body: cuerpo === undefined ? undefined : JSON.stringify(cuerpo) });
   const datos = await r.json().catch(() => ({}));
   if (!r.ok) {
-    const detalle = datos.problemas ? "\n- " + datos.problemas.join("\n- ") : "";
-    throw new Error((datos.error || (Array.isArray(datos.detail) ? "Dato inválido: " + datos.detail.map((d) => d.loc.join(".") + " " + d.msg).join("; ") : datos.detail) || r.statusText) + detalle);
+    throw new Error(datos.error || (Array.isArray(datos.detail) ? "Dato inválido: " + datos.detail.map((d) => d.loc.join(".") + " " + d.msg).join("; ") : datos.detail) || r.statusText);  // `error` ya trae la lista de problemas
   }
   return datos;
 }
@@ -27,7 +26,9 @@ function mensaje(texto, tipo = "error") {
   $("mensajes").prepend(p);
   while ($("mensajes").children.length > 6) $("mensajes").lastChild.remove();
   if (!reducido.matches) gsap.from(p, { y: -10, autoAlpha: 0, duration: 0.3, ease: "power2.out", clearProps: "transform,visibility" });
-  if (tipo !== "error") setTimeout(() => (reducido.matches ? p.remove() : gsap.to(p, { autoAlpha: 0, height: 0, margin: 0, padding: 0, duration: 0.3, onComplete: () => p.remove() })), 6000);
+  const quitar = () => (reducido.matches ? p.remove() : gsap.to(p, { autoAlpha: 0, height: 0, margin: 0, padding: 0, duration: 0.3, onComplete: () => p.remove() }));
+  p.onclick = quitar; p.title = "Tocá para cerrar";
+  setTimeout(quitar, tipo === "error" ? 15000 : 6000);
 }
 async function accion(ruta, cuerpo, ok, metodo) {
   try { const r = await api(ruta, cuerpo, metodo); if (ok) mensaje(ok, "ok"); return r; } catch (e) { mensaje(e.message); }
@@ -126,11 +127,12 @@ function pintar() {
 }
 
 // Vistas de cámara con transición
-const VISTAS = { "3/4": [900, 400, 800], arriba: [0, -400, 1500], lateral: [1300, -400, 250], frente: [0, 700, 350] };
+const VISTAS = { "3/4": [[900, 400, 800], [0, -400, 100]], arriba: [[0, -330, 2100], [0, -330, 0]], lateral: [[1500, -400, 300], [0, -400, 250]], frente: [[0, 900, 400], [0, -400, 250]] };
 function irAVista(nombre) {
-  const [x, y, z] = VISTAS[nombre];
-  if (reducido.matches) { camara.position.set(x, y, z); return; }
+  const [[x, y, z], [tx, ty, tz]] = VISTAS[nombre];
+  if (reducido.matches) { camara.position.set(x, y, z); orbita.target.set(tx, ty, tz); return; }
   gsap.to(camara.position, { x, y, z, duration: 0.8, ease: "power2.inOut", overwrite: true });
+  gsap.to(orbita.target, { x: tx, y: ty, z: tz, duration: 0.8, ease: "power2.inOut", overwrite: true });
 }
 document.querySelectorAll("[data-vista]").forEach((b) => (b.onclick = () => irAVista(b.dataset.vista)));
 

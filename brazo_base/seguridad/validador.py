@@ -1,6 +1,7 @@
 """Valida un plan completo ANTES de mandar el primer comando: límites de la mesa, zonas prohibidas, altura mínima y límites de articulación."""
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from brazo_base.errores import RecorridoProhibido
@@ -28,7 +29,28 @@ def problemas_de_tramos(tramos: list[Tramo], celda) -> list[str]:
                 problemas.append(f"{tramo.etiqueta or 'tramo'}: z={punto[2]:.0f} mm queda por debajo de la altura mínima ({celda.mesa_z_mm + celda.altura_minima_mm:.0f} mm)")
         for problema in zonas.problemas_de_tramo(tramo.desde, tramo.hasta, zonas_celda):
             problemas.append(f"{tramo.etiqueta or 'tramo'}: {problema}")
-    return list(dict.fromkeys(problemas))
+    return _agrupar(problemas)
+
+
+_PUNTO = re.compile(r"^(?P<prefijo>.*?): \((?P<x>-?\d+), (?P<y>-?\d+)\) (?P<resto>.*)$")
+
+
+def _agrupar(problemas: list[str]) -> list[str]:
+    """Un mismo problema se repite en cada punto muestreado del tramo: se deja una línea por problema con el primer y el último punto donde aparece."""
+    grupos: dict[tuple[str, str], list[tuple[str, str]]] = {}
+    sueltos: list[str] = []
+    for texto in problemas:
+        m = _PUNTO.match(texto)
+        if m is None:
+            if texto not in sueltos:
+                sueltos.append(texto)
+            continue
+        grupos.setdefault((m["prefijo"], m["resto"]), []).append((m["x"], m["y"]))
+    lineas = []
+    for (prefijo, resto), puntos in grupos.items():
+        (x1, y1), (x2, y2) = puntos[0], puntos[-1]
+        lineas.append(f"{prefijo}: ({x1}, {y1}) {resto}" if len(puntos) == 1 else f"{prefijo}: {resto}, entre ({x1}, {y1}) y ({x2}, {y2})")
+    return sueltos + lineas
 
 
 def exigir_tramos(tramos: list[Tramo], celda) -> None:

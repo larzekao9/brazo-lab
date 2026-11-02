@@ -3,7 +3,35 @@
 Plataforma abierta para **aprender, practicar y desarrollar** con el brazo Dobot CR5AS del laboratorio **sin tener el brazo delante**. Lo que
 funciona en el simulador funciona igual en el brazo real: solo cambia `destino`.
 
-> Estado: **fase 2** (librería `Brazo` + simulador + API HTTP + panel web) y la celda del laboratorio importada de la calibración real del ajedrez. Guía: `docs/laboratorio.md`. Ver `docs/bitacora.md` y `../Ajedrez/PLAN_BRAZO_BASE.md`.
+> Estado: **fase 2** (librería `Brazo` + simulador + API HTTP + panel web) y la celda del laboratorio importada de la calibración real del ajedrez. Guía: `docs/laboratorio.md`. Ver `docs/bitacora.md` y el `PLAN_BRAZO_BASE.md` del repositorio del ajedrez.
+
+## Capturas
+
+Todo lo que se ve es el simulador funcionando con el modelo 3D del CR5 (el CAD oficial) y su pinza. El mismo panel sirve para el brazo real, pero todavía no se probó con el brazo (ver `docs/laboratorio.md`).
+
+![Panel de control con el modelo 3D del CR5, la celda de práctica y los controles](docs/img/01-panel.png)
+
+**Panel de control.** Vista 3D de la celda (brazo, objetos, zona del trípode, límites de la mesa), conexión, mover a mano, herramienta, puntos con nombre y pick and place.
+
+![El brazo llevando una caja roja entre los dedos de la pinza](docs/img/02-llevar-objeto.png)
+
+**Pick and place.** `brazo.llevar("caja_roja", "bandeja")`: abre, baja, cierra, comprueba que sostiene la caja, sube y la traslada. Los controles se bloquean mientras hay una tarea en curso.
+
+![Vista superior con los límites de la mesa, la zona prohibida y el tablero](docs/img/03-vista-superior.png)
+
+**Vista superior.** Verde: límites de la mesa. Rojo: zona prohibida (el trípode de la cámara, que se genera solo del objeto fijo). Naranja: la superficie con cuadrícula (un tablero es un caso).
+
+![Aviso de recorrido prohibido sobre la vista 3D](docs/img/04-recorrido-prohibido.png)
+
+**Seguridad antes de mover.** Un recorrido que pasa por una zona prohibida se rechaza *antes* de mandar el primer comando, y el mensaje dice por dónde.
+
+![Panel con una alarma provocada en el simulador](docs/img/05-fallo-alarma.png)
+
+**Practicar fallos.** Alarma, colisión, pieza que se cae o pinza que no responde: para aprender a manejarlos sin riesgo.
+
+![El brazo sobre la esquina a1 del tablero real, con la celda del laboratorio](docs/img/06-celda-laboratorio.png)
+
+**La celda del laboratorio.** Con `celda/celda.json` (generada de la calibración real del ajedrez) el simulador lleva la pinza a la esquina a1 del tablero enseñado.
 
 ## Instalación
 
@@ -27,7 +55,7 @@ with Brazo() as brazo:                       # simulador por defecto
 
 ```bash
 python ejemplos/05_pick_and_place.py
-pytest            # todas las pruebas corren sin brazo
+pytest            # 79 pruebas, todas sin brazo
 ```
 
 ## API HTTP y panel

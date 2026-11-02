@@ -15,12 +15,12 @@
   <button id="parar" class="peligro">PARAR</button>
 </header>
 <main>
-  <section id="vista"><div id="lienzo"></div><div id="vistas"><button data-vista="3/4">3/4</button><button data-vista="arriba">Arriba</button><button data-vista="lateral">Lateral</button><button data-vista="frente">Frente</button></div><div id="leyenda">Arrastrá para girar · rueda para acercar</div></section>
+  <section id="vista"><div id="lienzo"></div><div id="vistas"><button data-vista="3/4">3/4</button><button data-vista="arriba">Arriba</button><button data-vista="lateral">Lateral</button><button data-vista="frente">Frente</button></div><section id="mensajes" aria-live="polite"></section><div id="leyenda">Arrastrá para girar · rueda para acercar</div></section>
   <aside>
     <details open><summary>Conexión</summary>
       <label>Destino <select id="destino"><option value="simulador">Simulador</option><option value="real">Brazo real</option></select></label>
       <label id="fila-real" hidden><input type="checkbox" id="confirma-real"> Entiendo que el brazo real se va a mover</label>
-      <label>Celda (solo real) <input id="celda" placeholder="celda/celda.json"></label>
+      <label>Celda <input id="celda" placeholder="vacía = celda de práctica"></label>
       <div class="fila"><button id="conectar">Conectar</button><button id="habilitar">Habilitar</button><button id="desconectar">Desconectar</button></div>
     </details>
     <details open><summary>Mover a mano (mm)</summary>
@@ -49,7 +49,6 @@
       <div class="fila"><button data-f="alarma">Alarma</button><button data-f="colision">Colisión</button><button data-f="pieza_cae">Se cae la pieza</button><button id="limpiar">Limpiar error</button></div>
     </details>
     <section class="dato" id="estado"></section>
-    <section id="mensajes"></section>
   </aside>
 </main>
 <script type="module" src="/panel/panel.js"></script>
