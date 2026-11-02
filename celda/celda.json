@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "nombre": "Laboratorio FICCT - Dobot CR5AS",
+  "controlador": {"host": "192.168.5.1", "puerto": 29999},
+  "herramienta": "pinza_dh_dedos_largos",
+  "seguridad": {"velocidad_maxima_real": 50, "limites_mesa": null, "altura_minima_mm": 5, "altura_segura_mm": 150},
+  "mesa": {"z_mm": 0},
+  "puntos": {
+    "descanso": {"angulos": [298.4786, 35.3395, -150.676, 27.4337, 90.4496, -38.7623]}
+  },
+  "superficies": {},
+  "lugares": {},
+  "objetos": [],
+  "zonas_prohibidas": []
+}

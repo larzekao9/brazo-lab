@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+  Modelo URDF del Robot Colaborativo Dobot CR5AS con Pinza Eléctrica DH-Robotics PGE-50-26
+  y dedos personalizados para ajedrez.
+  Dimensiones extraídas de los modelos oficiales de DobotStudio Pro 4.6 y manual PGE-Series.
+  
+  Cinemática Dobot CR5AS:
+  - Base a J2: 147 mm (0.147 m)
+  - Eslabón 1 (Brazo J2->J3): 427 mm (0.427 m)
+  - Eslabón 2 (Antebrazo J3->J4): 357 mm (0.357 m)
+  - Muñeca J4->J5: 116 mm (0.116 m)
+  - Muñeca J5->J6: 105 mm (0.105 m)
+  - Alcance total: 900 mm (0.9 m)
+  
+  Pinza DH-Robotics PGE-50-26:
+  - Carrera: 26 mm (0.026 m, +/- 13 mm por dedo)
+  - Longitud cuerpo: 97 mm (0.097 m)
+-->
+<robot name="dobot_cr5as_pge50">
+
+  <!-- Materiales -->
+  <material name="dobot_white">
+    <color rgba="0.92 0.94 0.96 1.0"/>
+  </material>
+  <material name="dobot_dark">
+    <color rgba="0.18 0.22 0.28 1.0"/>
+  </material>
+  <material name="dobot_cyan">
+    <color rgba="0.0 0.9 1.0 1.0"/>
+  </material>
+  <material name="finger_material">
+    <color rgba="0.1 0.1 0.1 1.0"/>
+  </material>
+
+  <!-- Base del Robot -->
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0.0735" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.075" length="0.147"/>
+      </geometry>
+      <material name="dobot_white"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0735" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.075" length="0.147"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="4.5"/>
+      <origin xyz="0 0 0.07" rpy="0 0 0"/>
+      <inertia ixx="0.02" ixy="0" ixz="0" iyy="0.02" iyz="0" izz="0.015"/>
+    </inertial>
+  </link>
+
+  <!-- Joint 1: Base / Yaw -->
+  <joint name="joint1" type="revolute">
+    <parent link="base_link"/>
+    <child link="link1"/>
+    <origin xyz="0 0 0.147" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.28318" upper="6.28318" effort="150" velocity="3.14"/>
+  </joint>
+
+  <!-- Link 1 -->
+  <link name="link1">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.065" length="0.10"/>
+      </geometry>
+      <material name="dobot_white"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.065" length="0.10"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="3.5"/>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <inertia ixx="0.01" ixy="0" ixz="0" iyy="0.01" iyz="0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <!-- Joint 2: Hombro / Pitch -->
+  <joint name="joint2" type="revolute">
+    <parent link="link1"/>
+    <child link="link2"/>
+    <origin xyz="0 0.122 0" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-6.28318" upper="6.28318" effort="150" velocity="3.14"/>
+  </joint>
+
+  <!-- Link 2: Brazo Superior (L1 = 427 mm) -->
+  <link name="link2">
+    <visual>
+      <origin xyz="0 0 0.2135" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.055" length="0.427"/>
+      </geometry>
+      <material name="dobot_white"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.2135" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.055" length="0.427"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="5.0"/>
+      <origin xyz="0 0 0.21" rpy="0 0 0"/>
+      <inertia ixx="0.08" ixy="0" ixz="0" iyy="0.08" iyz="0" izz="0.01"/>
+    </inertial>
+  </link>
+
+  <!-- Joint 3: Codo / Pitch -->
+  <joint name="joint3" type="revolute">
+    <parent link="link2"/>
+    <child link="link3"/>
+    <origin xyz="0 -0.116 0.427" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-2.7925" upper="2.7925" effort="100" velocity="3.14"/>
+  </joint>
+
+  <!-- Link 3: Antebrazo (L2 = 357 mm) -->
+  <link name="link3">
+    <visual>
+      <origin xyz="0 0 0.1785" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.045" length="0.357"/>
+      </geometry>
+      <material name="dobot_white"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.1785" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.045" length="0.357"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="3.0"/>
+      <origin xyz="0 0 0.18" rpy="0 0 0"/>
+      <inertia ixx="0.04" ixy="0" ixz="0" iyy="0.04" iyz="0" izz="0.008"/>
+    </inertial>
+  </link>
+
+  <!-- Joint 4: Muñeca 1 / Pitch -->
+  <joint name="joint4" type="revolute">
+    <parent link="link3"/>
+    <child link="link4"/>
+    <origin xyz="0 0.116 0.357" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-6.28318" upper="6.28318" effort="50" velocity="4.0"/>
+  </joint>
+
+  <!-- Link 4: Muñeca 1 -->
+  <link name="link4">
+    <visual>
+      <origin xyz="0 0 0.058" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.04" length="0.116"/>
+      </geometry>
+      <material name="dobot_dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.058" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.04" length="0.116"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.5"/>
+      <origin xyz="0 0 0.05" rpy="0 0 0"/>
+      <inertia ixx="0.005" ixy="0" ixz="0" iyy="0.005" iyz="0" izz="0.003"/>
+    </inertial>
+  </link>
+
+  <!-- Joint 5: Muñeca 2 / Yaw -->
+  <joint name="joint5" type="revolute">
+    <parent link="link4"/>
+    <child link="link5"/>
+    <origin xyz="0 0 0.116" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-6.28318" upper="6.28318" effort="50" velocity="4.0"/>
+  </joint>
+
+  <!-- Link 5: Muñeca 2 -->
+  <link name="link5">
+    <visual>
+      <origin xyz="0 0 0.0525" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.038" length="0.105"/>
+      </geometry>
+      <material name="dobot_white"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0525" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.038" length="0.105"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="1.2"/>
+      <origin xyz="0 0 0.05" rpy="0 0 0"/>
+      <inertia ixx="0.004" ixy="0" ixz="0" iyy="0.004" iyz="0" izz="0.002"/>
+    </inertial>
+  </link>
+
+  <!-- Joint 6: Brida de Herramienta / Roll -->
+  <joint name="joint6" type="revolute">
+    <parent link="link5"/>
+    <child link="flange_link"/>
+    <origin xyz="0 0 0.105" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-6.28318" upper="6.28318" effort="30" velocity="5.0"/>
+  </joint>
+
+  <!-- Brida de montaje -->
+  <link name="flange_link">
+    <visual>
+      <origin xyz="0 0 0.01" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.035" length="0.02"/>
+      </geometry>
+      <material name="dobot_dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.01" rpy="0 0 0"/>
+      <geometry>
+        <cylinder radius="0.035" length="0.02"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.3"/>
+      <origin xyz="0 0 0.01" rpy="0 0 0"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.001"/>
+    </inertial>
+  </link>
+
+  <!-- Joint Fijo: Brida -> Pinza PGE-50-26 -->
+  <joint name="gripper_joint" type="fixed">
+    <parent link="flange_link"/>
+    <child link="gripper_body"/>
+    <origin xyz="0 0 0.02" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Cuerpo de la Pinza DH-Robotics PGE-50-26 -->
+  <link name="gripper_body">
+    <visual>
+      <origin xyz="0 0 0.0485" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.029 0.020 0.097"/>
+      </geometry>
+      <material name="dobot_dark"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.0485" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.029 0.020 0.097"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.4"/>
+      <origin xyz="0 0 0.048" rpy="0 0 0"/>
+      <inertia ixx="0.001" ixy="0" ixz="0" iyy="0.001" iyz="0" izz="0.0005"/>
+    </inertial>
+  </link>
+
+  <!-- Dedo Izquierdo (Móvil, prismático) -->
+  <joint name="finger_left_joint" type="prismatic">
+    <parent link="gripper_body"/>
+    <child link="finger_left"/>
+    <origin xyz="-0.008 0 0.097" rpy="0 0 0"/>
+    <axis xyz="-1 0 0"/>
+    <limit lower="0.001" upper="0.013" effort="50" velocity="0.1"/>
+  </joint>
+
+  <link name="finger_left">
+    <visual>
+      <origin xyz="0 0 0.03" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.008 0.014 0.06"/>
+      </geometry>
+      <material name="finger_material"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.03" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.008 0.014 0.06"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.05"/>
+      <origin xyz="0 0 0.03" rpy="0 0 0"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.00005"/>
+    </inertial>
+  </link>
+
+  <!-- Dedo Derecho (Móvil, prismático) -->
+  <joint name="finger_right_joint" type="prismatic">
+    <parent link="gripper_body"/>
+    <child link="finger_right"/>
+    <origin xyz="0.008 0 0.097" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="0.001" upper="0.013" effort="50" velocity="0.1"/>
+  </joint>
+
+  <link name="finger_right">
+    <visual>
+      <origin xyz="0 0 0.03" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.008 0.014 0.06"/>
+      </geometry>
+      <material name="finger_material"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0.03" rpy="0 0 0"/>
+      <geometry>
+        <box size="0.008 0.014 0.06"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="0.05"/>
+      <origin xyz="0 0 0.03" rpy="0 0 0"/>
+      <inertia ixx="0.0001" ixy="0" ixz="0" iyy="0.0001" iyz="0" izz="0.00005"/>
+    </inertial>
+  </link>
+
+  <!-- Tool Center Point (TCP): Punta de los dedos -->
+  <joint name="tcp_joint" type="fixed">
+    <parent link="gripper_body"/>
+    <child link="tcp_link"/>
+    <origin xyz="0 0 0.157" rpy="0 0 0"/>
+  </joint>
+
+  <link name="tcp_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <sphere radius="0.004"/>
+      </geometry>
+      <material name="dobot_cyan"/>
+    </visual>
+  </link>
+
+</robot>

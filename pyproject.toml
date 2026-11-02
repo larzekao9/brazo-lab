@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "brazo-base"
+version = "0.1.0"
+description = "Plataforma abierta para aprender y programar el brazo Dobot CR5AS, primero en simulador y después en el brazo real"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = ["numpy>=1.26"]
+
+[project.optional-dependencies]
+servidor = ["fastapi>=0.110", "uvicorn[standard]>=0.29"]
+fisica = ["pybullet>=3.2"]
+dev = ["pytest>=8", "httpx>=0.27"]
+
+[tool.setuptools.packages.find]
+include = ["brazo_base*"]
+
+[tool.setuptools.package-data]
+brazo_base = ["datos/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["pruebas"]
+pythonpath = ["."]
