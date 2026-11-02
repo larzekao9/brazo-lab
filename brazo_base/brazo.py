@@ -447,6 +447,16 @@ class Brazo:
         comprueba que sostiene algo; sube despacio y vuelve a comprobar; se traslada sobre `hasta`; baja despacio; suelta (más abierta que al agarrar); y sube despacio.
         """
         c = self._listo()
+        self.comprobar_pasos(pasos, volver_a)
+        poses = perfiles.Poses(self.celda)
+        for desde, hasta, perfil in pasos:
+            self._trasladar(c, poses, desde, hasta, perfil)
+        if volver_a is not None:
+            self._ir_a_angulos_ensenados(self.celda.puntos[volver_a]["angulos"])
+
+    def comprobar_pasos(self, pasos: list[tuple[str, str, str]], volver_a: str | None = "descanso") -> None:
+        """Todo lo que se comprueba ANTES de mover `ejecutar_pasos`; no mueve nada: perfiles, lugares, zonas prohibidas, el punto de vuelta y que la herramienta esté inicializada."""
+        self._listo()
         if self.celda.modo_pose != "brida":
             raise ErrorBrazo("llevar_desde / ejecutar_pasos trabajan con poses de la brida: poné «modo_pose»: «brida» y la «orientacion» enseñada en la celda")
         poses = perfiles.Poses(self.celda)
@@ -457,10 +467,10 @@ class Brazo:
             raise ErrorBrazo(f"No hay un punto «{volver_a}» con ángulos en la celda para volver al terminar (o pasá volver_a=None)")
         if not self.herramienta.estado().get("inicializada", True):
             raise HerramientaNoResponde("La herramienta no está inicializada: llamá a brazo.herramienta.inicializar() antes de mover objetos")
-        for desde, hasta, perfil in pasos:
-            self._trasladar(c, poses, desde, hasta, perfil)
-        if volver_a is not None:
-            self._ir_a_angulos_ensenados(self.celda.puntos[volver_a]["angulos"])
+
+    def modo(self) -> int:
+        """`RobotMode()` del controlador (5 = habilitado y libre, 7 y 8 = moviéndose, 9 = alarma, 11 = colisión)."""
+        return self._exigir_conexion().modo()
 
     def _trasladar(self, c: ClienteDobot, poses: perfiles.Poses, desde: str, hasta: str, perfil: str) -> None:
         sobre, apertura, lento = poses.traslado(perfil), poses.apertura(perfil), self._lento(c)
@@ -476,7 +486,7 @@ class Brazo:
         if not self.herramienta.estado().get("sostiene", True):
             self.herramienta.abrir_a(apertura)
             ir(poses.pose(desde, sobre, perfil), True, **lento)
-            raise NoAgarro(f"Se cayó lo que se agarró en «{desde}» al subirlo: puede haber quedado en cualquier lado, que lo mire una persona")
+            raise NoAgarro(f"Se cayó lo que se agarró en «{desde}» al subirlo: puede haber quedado en cualquier lado, que lo mire una persona", reintentable=False)
         ir(poses.pose(hasta, sobre, perfil), True)
         ir(poses.pose_de_soltar(hasta, perfil), True, **lento)
         self.herramienta.abrir_a(poses.apertura_al_soltar(perfil))
@@ -562,3 +572,23 @@ class Brazo:
         x, y, zp, *_ = self.pose()
         self.celda.lugares[nombre] = {"x": round(x, 3), "y": round(y, 3), "z": round(zp if z is None else float(z), 3)}
         return self.celda.lugares[nombre]
+
+    # --- solo simulador: poblar el mundo ----------------------------------------------------------------------------------------
+    def colocar_objetos_simulados(self, objetos: list) -> None:
+        """Solo simulador: reemplaza los objetos del mundo (por ejemplo las piezas de una partida) y los registra en la celda. Lo que sostiene la pinza se pierde."""
+        if self.simulador is None:
+            raise ErrorBrazo("Poblar el mundo solo existe en el simulador: con el brazo real los objetos son los de verdad")
+        with self.simulador.cerrojo:
+            self.simulador.mundo.reemplazar_objetos(objetos)
+        self.celda.objetos = {o.nombre: o for o in objetos}
+        self._posiciones = {o.nombre: tuple(o.posicion) for o in objetos}
+        self._sostiene = None
+
+    def punta_simulada(self, pose_brida) -> tuple[float, float, float] | None:
+        """Solo simulador: dónde quedaría la punta de la herramienta con la brida en `pose_brida` `(x, y, z, rx, ry, rz)` según la cinemática del simulador, o `None` si no la alcanza."""
+        if self.simulador is None:
+            raise ErrorBrazo("Solo existe en el simulador")
+        from brazo_base.simulador import cinematica
+
+        angulos = cinematica.angulos_para_pose_completa(tuple(pose_brida), tuple(self.simulador.angulos))
+        return None if angulos is None else self.simulador._punta_de(angulos)

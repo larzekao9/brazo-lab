@@ -97,3 +97,23 @@
 - Las rutinas se guardan por celda (`rutinas/` junto a su archivo); con la celda de práctica, en `~/.brazo-base/rutinas`.
 - `calibrar_por_pivote` depende de la convención de Euler (`Rz·Ry·Rx`) sin verificar contra DobotStudio: `herramientas/verificar_geometria.py` la comprueba.
 - Sigue sin probarse nada de esto con el brazo real.
+
+## Fase 5 — el ajedrez sobre la plataforma (2026-11-02)
+
+**Hecho**
+- En el ajedrez (`chessia-backend`): `backend/servicios/brazo/ejecutor_plataforma.py` con `EjecutorPlataforma`, un modo nuevo `plataforma` de la fábrica (`AJEDREZ_MODO_BRAZO=plataforma`, `AJEDREZ_PLATAFORMA_DESTINO=simulador|real`). El planificador sigue siendo del ajedrez; el ejecutor le pasa a `Brazo.ejecutar_pasos` los pasos `(desde, hasta, perfil)`, comprueba todo (también las alternativas `si_falla`) antes de mover y mantiene las excepciones del ajedrez (`PiezaNoAgarrada` con `reintentable`, `RuntimeError`). En el real no enciende ni habilita el brazo.
+- En `brazo-base`: `celda_de_ajedrez(datos)` (celda desde el contenido de `brazo.json`), `Brazo.comprobar_pasos`, `Brazo.modo`, `NoAgarro.reintentable`, `colocar_objetos_simulados` y `punta_simulada` (poblar el simulador con las piezas), `Objeto` exportado.
+- **Partida completa en el simulador** (8 jugadas con enroque y una captura): tras cada jugada, cada pieza del tablero está donde la pinza la agarra y la capturada está en el cementerio.
+- Pruebas: 22 nuevas en el ajedrez (omitidas si `brazo_base` no está instalado) y 9 en `brazo-base`. Las 218 pruebas del brazo que ya había en el ajedrez siguen pasando (218 pasan y 26 se omiten, igual que antes de tocar nada).
+
+**Encontrado y corregido**
+- Un perfil de agarre desconocido caía en silencio en el de «defecto» (el del peón): una pieza sin apertura medida se habría agarrado con la apertura del peón. Ahora falla con un mensaje que dice qué medir, como hacía el ajedrez.
+
+**Decisiones**
+- Es un modo **opcional y aparte**: los modos `simulado` y `real` del ajedrez no cambiaron y `control_brazo.py` (el panel) y `simulador_dobot/` siguen con su propio código. Reemplazarlos del todo (lo que pedía el plan) se deja para después de probar la plataforma con el brazo real: sin esa prueba, tirar el código que sí funcionó en el laboratorio sería arriesgado.
+- En el simulador, las piezas se ponen donde la cinemática del simulador dice que queda la punta, no en el centro de la casilla: la cinemática del simulador no está verificada contra el brazo real y esa diferencia (unos 12 mm con la inclinación enseñada) solo importa al simular.
+- No se hizo commit en el ajedrez: su índice tiene borrados preparados de antes (`.claude/`, etc.) y un commit los habría arrastrado.
+
+**Pendiente**
+- Probar `AJEDREZ_MODO_BRAZO=plataforma` con el brazo real (primero `herramientas/verificar_geometria.py`).
+- Migrar `control_brazo.py` y `simulador_dobot/` a la plataforma, y quitar la copia vieja, cuando lo anterior esté probado.

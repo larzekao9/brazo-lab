@@ -23,7 +23,14 @@ class RecorridoProhibido(ErrorBrazo):
 
 
 class NoAgarro(ErrorBrazo):
-    """La herramienta cerró y no sostiene nada: el objeto no estaba donde se esperaba o se cayó."""
+    """La herramienta cerró y no sostiene nada: el objeto no estaba donde se esperaba o se cayó.
+
+    `reintentable` es `True` si cerró en el aire (se puede volver a bajar a probar) y `False` si se le cayó lo que llevaba (pudo quedar en cualquier lado: que lo mire una persona).
+    """
+
+    def __init__(self, mensaje: str, reintentable: bool = True):
+        super().__init__(mensaje)
+        self.reintentable = reintentable
 
 
 class HerramientaNoResponde(ErrorBrazo):

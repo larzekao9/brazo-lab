@@ -21,11 +21,10 @@ class Poses:
 
     # --- perfiles ---------------------------------------------------------------------------------------------------------
     def perfil(self, nombre: str) -> dict:
+        """El perfil de agarre `nombre`. Un perfil desconocido NO cae en «defecto»: sin los valores medidos de esa pieza no se mueve nada (bajar con otra apertura puede romperla)."""
         if nombre in self.celda.perfiles:
             return self.celda.perfiles[nombre]
-        if "defecto" in self.celda.perfiles:
-            return self.celda.perfiles["defecto"]
-        raise CeldaInvalida(f"No hay un perfil de agarre «{nombre}» en la celda (ni «defecto»). Perfiles: {', '.join(self.celda.perfiles) or 'ninguno'}")
+        raise CeldaInvalida(f"No hay un perfil de agarre «{nombre}» en la celda. Medí su apertura y su margen y agregalo a «perfiles». Perfiles: {', '.join(self.celda.perfiles) or 'ninguno'}")
 
     def margen(self, perfil: str) -> float:
         """Cuánto sobre la superficie quedan los dedos al agarrar (mm)."""

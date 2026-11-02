@@ -24,11 +24,19 @@ def _cuadricula(origen, paso, paso_fila, columnas: int, indice: int) -> tuple[fl
 def celda_desde_brazo_json(ruta: str | Path, nombre: str = "Laboratorio FICCT - Dobot CR5AS") -> tuple[dict, dict]:
     """`(celda, herramienta)`: los diccionarios de `celda.json` y de `herramientas/pinza_dh_dedos_largos.json`."""
     try:
-        d = json.loads(Path(ruta).read_text(encoding="utf-8"))
+        datos = json.loads(Path(ruta).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as error:
+        raise CeldaInvalida(f"No se pudo leer la calibración {ruta}: {error}") from error
+    return celda_desde_datos(datos, nombre)
+
+
+def celda_desde_datos(d: dict, nombre: str = "Laboratorio FICCT - Dobot CR5AS") -> tuple[dict, dict]:
+    """Lo mismo que `celda_desde_brazo_json` con el contenido del archivo ya leído (`angulos_cero`, `puntos` y `agarre`)."""
+    try:
         puntos, a = d["puntos"], d["agarre"]
         cero = d["angulos_cero"]
-    except (OSError, ValueError, KeyError) as error:
-        raise CeldaInvalida(f"No se pudo leer la calibración {ruta}: {error}. Hace falta angulos_cero, puntos y agarre") from error
+    except (KeyError, TypeError) as error:
+        raise CeldaInvalida(f"La calibración no tiene el campo {error}: hace falta angulos_cero, puntos y agarre") from error
     if a.get("z_tope") is None:
         raise CeldaInvalida("La calibración no tiene z_tope (la altura del tablero): medila apoyando las puntas de los dedos")
 
@@ -94,3 +102,13 @@ def celda_desde_brazo_json(ruta: str | Path, nombre: str = "Laboratorio FICCT - 
     }
     herramienta = {"tipo": "pinza_dh", "largo_mm": float(a.get("largo_pinza_mm", 217.0)), "fuerza": int(a.get("fuerza", 20)), "velocidad": int(a.get("velocidad_pinza", 20)), "carrera_mm": 26}
     return celda, herramienta
+
+
+def celda_de_ajedrez(datos: dict, nombre: str = "Laboratorio FICCT - Dobot CR5AS"):
+    """La `Celda` lista para `Brazo` a partir del contenido de `calibracion_local/brazo.json` (sin pasar por archivos)."""
+    from brazo_base.celda.archivos import celda_desde_dict
+
+    celda_dict, herramienta = celda_desde_datos(datos, nombre)
+    celda = celda_desde_dict(celda_dict)
+    celda.herramienta_config = herramienta
+    return celda

@@ -46,6 +46,11 @@ class MundoGeometrico:
         self.ancho_mm = self.objetivo_mm = self.carrera_mm
         self.objetos = {n: ObjetoSim(o, *o.posicion) for n, o in self.celda.objetos.items()}
 
+    def reemplazar_objetos(self, objetos: list[Objeto]) -> None:
+        """Cambia todos los objetos del mundo (suelta lo que sostenían los dedos)."""
+        self.sostiene = None
+        self.objetos = {o.nombre: ObjetoSim(o, *o.posicion) for o in objetos}
+
     # --- lo que usa la pinza simulada --------------------------------------------------------------------------------------
     def fijar_dedos(self, ancho_mm: float, fuerza_n: float, velocidad_mm_s: float) -> None:
         self.objetivo_mm, self.fuerza_n, self.velocidad_mm_s = max(0.0, min(self.carrera_mm, ancho_mm)), fuerza_n, velocidad_mm_s
