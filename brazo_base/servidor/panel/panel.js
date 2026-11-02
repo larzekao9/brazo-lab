@@ -9,6 +9,7 @@ let celda = null;
 const vis = {};  // posiciones que se dibujan: p{i}x/y/z (brazo), tx/ty/tz (punta), o:{nombre}x/y/z (objetos)
 const reducido = matchMedia("(prefers-reduced-motion: reduce)");
 let brazoMallas = null;
+let pasosNuevos = [], capturas = {}, scriptDesde = 0, scriptTimer = null, ultimaRutinaVista = 0;
 let robot = null;  // el modelo 3D del CR5 cuando termina de cargar (ver más abajo)
 
 // ---------- API ----------
@@ -74,7 +75,7 @@ function dibujarCelda() {
   const lim = celda.seguridad?.limites_mesa;
   if (lim) { const [x1, y1, x2, y2] = lim; const g = new THREE.BufferGeometry().setFromPoints([[x1, y1], [x2, y1], [x2, y2], [x1, y2], [x1, y1]].map(([x, y]) => new THREE.Vector3(x, y, 1))); grupoCelda.add(new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x16a34a }))); }
   for (const s of Object.values(celda.superficies || {})) {
-    const e = s.esquinas, pts = [e.a1, e.h1, e.h8, e.a8, e.a1].map(([x, y]) => new THREE.Vector3(x, y, s.z_mm + 1));
+    const e = s.esquinas, h8 = e.h8 || [e.h1[0] + e.a8[0] - e.a1[0], e.h1[1] + e.a8[1] - e.a1[1]], pts = [e.a1, e.h1, h8, e.a8, e.a1].map(([x, y]) => new THREE.Vector3(x, y, s.z_mm + 1));
     grupoCelda.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xa16207 })));
   }
 }
@@ -170,7 +171,7 @@ function conectarWS() {
 let teniaConexion = false, ultimoError = 0;
 async function recibir(e) {
   estado = e;
-  if (e.conectado && !teniaConexion) { celda = await api("/celda").catch(() => null); dibujarCelda(); llenarListas(); }
+  if (e.conectado && !teniaConexion) { celda = await api("/celda").catch(() => null); dibujarCelda(); llenarListas(); cargarRutinas(); }
   if (!e.conectado && teniaConexion) { celda = null; dibujarCelda(); }
   teniaConexion = e.conectado;
   const ins = $("insignia");
@@ -186,6 +187,7 @@ async function recibir(e) {
     $("estado").textContent = `TCP  x ${x.toFixed(1)}  y ${y.toFixed(1)}  z ${z.toFixed(1)}\nÁngulos ${e.angulos.map((a) => a.toFixed(1)).join("  ")}\nTarea: ${e.tarea.nombre ?? "-"} (${e.tarea.estado})${e.tarea.error ? "\n" + e.tarea.error : ""}${e.sostiene ? "\nSostiene: " + e.sostiene : ""}`;
     $("herr-estado").textContent = JSON.stringify(e.herramienta);
   } else $("estado").textContent = e.conectado ? (e.error_lectura || "") : "";
+  if (e.tarea?.nombre?.startsWith("rutina") && e.tarea.estado === "terminada" && e.tarea.id !== ultimaRutinaVista) { ultimaRutinaVista = e.tarea.id; cargarRutinas(); }  // ahora queda «validada»
   if (e.tarea?.estado === "error" && e.tarea.id !== ultimoError) { ultimoError = e.tarea.id; mensaje(e.tarea.error); }
   const ocupado = e.tarea?.estado === "en_curso";
   document.querySelectorAll("[data-d],[data-h],#ir,#ir-punto,#llevar").forEach((b) => (b.disabled = !e.habilitado || ocupado));
@@ -230,4 +232,82 @@ $("ensayo").onclick = async () => {
 };
 $("llevar").onclick = () => accion("/llevar", { desde: $("objeto").value, hasta: $("lugar").value });
 document.querySelectorAll("[data-f]").forEach((b) => (b.onclick = () => accion("/simulador/fallo", { fallo: b.dataset.f, activo: true }, "Fallo provocado: " + b.dataset.f)));
+
+// ---------- rutinas ----------
+async function cargarRutinas() {
+  const lista = await api("/rutinas").catch(() => []);
+  const elegida = $("rutinas").value;
+  $("rutinas").innerHTML = lista.map((r) => `<option value="${r.nombre}">${r.validada ? "✓ " : ""}${r.nombre} (${r.pasos})</option>`).join("");
+  if (elegida) $("rutinas").value = elegida;
+  mostrarEstadoRutina(lista);
+}
+function mostrarEstadoRutina(lista) {
+  const r = (lista || []).find((x) => x.nombre === $("rutinas").value);
+  $("rutina-estado").textContent = r ? (r.validada ? "✓ validada" : "sin validar (corré en el simulador)") : "";
+  $("rutina-estado").className = "dato " + (r?.validada ? "ok-texto" : "");
+}
+$("rutinas").onchange = async () => mostrarEstadoRutina(await api("/rutinas").catch(() => []));
+function dibujarPasos() {
+  $("pasos").innerHTML = pasosNuevos.map((p, i) => `<li>${p.tipo === "articulaciones" ? "Pose " + p.angulos.map((a) => a.toFixed(0)).join(", ") : p.tipo === "pinza" ? "Pinza a " + p.apertura : "Esperar " + p.segundos + " s"}<button data-quitar="${i}" title="Quitar">×</button></li>`).join("");
+  $("pasos").querySelectorAll("[data-quitar]").forEach((b) => (b.onclick = () => { pasosNuevos.splice(Number(b.dataset.quitar), 1); dibujarPasos(); }));
+}
+$("paso-pose").onclick = () => { if (!estado.angulos) return mensaje("Conectá el brazo primero."); pasosNuevos.push({ tipo: "articulaciones", angulos: estado.angulos.map((a) => +a.toFixed(3)), velocidad: 20 }); dibujarPasos(); };
+$("paso-abrir").onclick = () => { pasosNuevos.push({ tipo: "pinza", apertura: 1000 }); dibujarPasos(); };
+$("paso-cerrar").onclick = () => { pasosNuevos.push({ tipo: "pinza", apertura: 0 }); dibujarPasos(); };
+$("paso-espera").onclick = () => { pasosNuevos.push({ tipo: "esperar", segundos: 1 }); dibujarPasos(); };
+$("rutina-guardar").onclick = async () => {
+  const n = $("rutina-nombre").value.trim();
+  if (!n) return mensaje("Poné un nombre a la rutina.");
+  if (await accion(`/rutinas/${encodeURIComponent(n)}`, { pasos: pasosNuevos }, `Rutina «${n}» guardada`, "PUT")) { pasosNuevos = []; dibujarPasos(); await cargarRutinas(); $("rutinas").value = n; mostrarEstadoRutina(await api("/rutinas")); }
+};
+$("rutina-borrar").onclick = async () => { const n = $("rutinas").value; if (n && confirm(`¿Borrar la rutina «${n}»?`) && await accion(`/rutinas/${encodeURIComponent(n)}`, undefined, `Rutina «${n}» borrada`, "DELETE")) cargarRutinas(); };
+$("rutina-ejecutar").onclick = async () => {
+  const n = $("rutinas").value; if (!n) return;
+  const real = estado.destino === "real";
+  if (real && !confirm(`El brazo REAL va a ejecutar «${n}». ¿Confirmás?`)) return;
+  await accion(`/rutinas/${encodeURIComponent(n)}/ejecutar`, { factor: Number($("factor").value), confirmar: real });
+};
+
+// ---------- consola de scripts ----------
+async function sondearScript() {
+  const e = await api(`/scripts/estado?desde=${scriptDesde}`).catch(() => null);
+  if (!e) return;
+  if (e.salida.length) { const pre = $("salida"), abajo = pre.scrollTop + pre.clientHeight >= pre.scrollHeight - 8; pre.textContent += (pre.textContent ? "\n" : "") + e.salida.join("\n"); scriptDesde = e.total; if (abajo) pre.scrollTop = pre.scrollHeight; }
+  const texto = { libre: "", corriendo: "corriendo…", terminado: "terminó bien", error: "terminó con error", cancelado: "cancelado", tiempo: "cortado por el tiempo límite" }[e.estado] || e.estado;
+  $("script-estado").textContent = e.estado === "libre" ? "" : `${texto} · ${e.duracion_s} s${e.validado_para_real ? " · ✓ validado para el brazo real" : ""}`;
+  $("script-estado").className = "dato " + (e.estado === "terminado" ? "ok-texto" : e.estado === "error" || e.estado === "tiempo" ? "mal-texto" : "");
+  $("script-ejecutar").disabled = e.estado === "corriendo";
+  if (e.estado !== "corriendo" && scriptTimer) { clearInterval(scriptTimer); scriptTimer = null; }
+}
+$("script-ejecutar").onclick = async () => {
+  const real = estado.destino === "real";
+  if (real && !confirm("El brazo REAL va a ejecutar este script. ¿Confirmás?")) return;
+  $("salida").textContent = ""; scriptDesde = 0;
+  const r = await accion("/scripts/ejecutar", { codigo: $("codigo").value, confirmar: real, limite_segundos: Number($("script-limite").value) || 120 });
+  if (r) { if (!scriptTimer) scriptTimer = setInterval(sondearScript, 400); sondearScript(); }
+};
+$("script-parar").onclick = async () => { await accion("/scripts/parar", {}, "Script parado"); sondearScript(); };
+$("codigo").addEventListener("keydown", (e) => { if (e.key === "Tab") { e.preventDefault(); const t = e.target, i = t.selectionStart; t.setRangeText("    ", i, t.selectionEnd, "end"); } });
+
+// ---------- calibración ----------
+function dibujarCapturas() { $("sup-capturas").textContent = Object.entries(capturas).map(([k, p]) => `${k}: ${p.slice(0, 3).map((v) => v.toFixed(1)).join(", ")}`).join("\n") || "(sin esquinas capturadas)"; }
+document.querySelectorAll("[data-esquina]").forEach((b) => (b.onclick = () => {
+  if (!estado.pose) return mensaje("Conectá el brazo primero.");
+  capturas[b.dataset.esquina] = estado.pose.map((v) => +v.toFixed(4)); dibujarCapturas();  // en modo «brida» la pose ya es la de la brida; en «tcp», la de la punta
+}));
+$("sup-limpiar").onclick = () => { capturas = {}; dibujarCapturas(); };
+$("sup-calcular").onclick = async () => {
+  const r = await accion("/calibracion/superficie", { nombre: $("sup-nombre").value.trim() || "mesa", puntos: capturas, filas: Number($("sup-filas").value), columnas: Number($("sup-columnas").value) });
+  if (r) { mensaje(`Superficie «${r.nombre}» calculada (altura ${r.z_mm.toFixed(1)} mm)` + (r.avisos.length ? "\nAvisos:\n- " + r.avisos.join("\n- ") : ""), r.avisos.length ? "error" : "ok"); celda = await api("/celda"); dibujarCelda(); llenarListas(); }
+};
+$("lugar-guardar").onclick = async () => {
+  const n = $("lugar-nombre").value.trim(); if (!n) return mensaje("Poné un nombre al lugar.");
+  if (await accion(`/lugares/${encodeURIComponent(n)}`, {}, `Lugar «${n}» guardado en memoria`, "PUT")) { celda = await api("/celda"); llenarListas(); }
+};
+$("largo-calcular").onclick = async () => {
+  const z = $("largo-z").value; if (z === "" || !estado.pose_brida) return mensaje("Escribí la z de la superficie y conectá el brazo.");
+  const r = await accion("/calibracion/largo-herramienta", { z_brida_mm: estado.pose_brida[2], z_superficie_mm: Number(z) });
+  if (r) mensaje(`Largo de la herramienta: ${r.largo_mm.toFixed(1)} mm (z de la brida ${estado.pose_brida[2].toFixed(1)} − ${Number(z).toFixed(1)})`, "ok");
+};
+dibujarCapturas();
 conectarWS();

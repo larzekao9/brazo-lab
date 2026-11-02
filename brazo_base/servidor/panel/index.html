@@ -48,6 +48,36 @@
     <details><summary>Practicar fallos (simulador)</summary>
       <div class="fila"><button data-f="alarma">Alarma</button><button data-f="colision">Colisión</button><button data-f="pieza_cae">Se cae la pieza</button><button id="limpiar">Limpiar error</button></div>
     </details>
+    <details><summary>Rutinas</summary>
+      <div class="fila"><select id="rutinas"></select><select id="factor" title="Velocidad de la rutina"><option value="0.5">0,5x</option><option value="1" selected>1x</option><option value="2">2x</option></select></div>
+      <div class="fila"><button id="rutina-ejecutar">Ejecutar</button><button id="rutina-borrar">Borrar</button><span id="rutina-estado" class="dato"></span></div>
+      <p class="ayuda">Armá una nueva moviendo el brazo y agregando pasos:</p>
+      <ol id="pasos" class="pasos"></ol>
+      <div class="fila"><button id="paso-pose">+ Pose actual</button><button id="paso-abrir">+ Abrir</button><button id="paso-cerrar">+ Cerrar</button><button id="paso-espera">+ Esperar 1 s</button></div>
+      <div class="fila"><input id="rutina-nombre" placeholder="nombre de la rutina"><button id="rutina-guardar">Guardar</button></div>
+    </details>
+    <details><summary>Consola de scripts</summary>
+      <textarea id="codigo" spellcheck="false" rows="9"># `brazo` es el mismo brazo del panel
+brazo.mover_relativo(dz=20)
+print("pose:", [round(v, 1) for v in brazo.pose()])
+brazo.llevar("caja_roja", "bandeja")
+print("listo")
+</textarea>
+      <div class="fila"><button id="script-ejecutar">Ejecutar</button><button id="script-parar" class="peligro-suave">Parar</button><label class="compacto">límite <input id="script-limite" type="number" value="120" min="1" max="600"> s</label></div>
+      <div id="script-estado" class="dato"></div>
+      <pre id="salida" aria-live="polite"></pre>
+    </details>
+    <details><summary>Calibración</summary>
+      <p class="ayuda"><b>Superficie</b>: llevá la herramienta al centro de cada esquina y capturala.</p>
+      <div class="fila"><input id="sup-nombre" placeholder="nombre" value="mesa"><input id="sup-filas" type="number" value="8" min="2" title="filas"><input id="sup-columnas" type="number" value="8" min="2" title="columnas"></div>
+      <div class="fila"><button data-esquina="a1">a1</button><button data-esquina="h1">h1</button><button data-esquina="a8">a8</button><button data-esquina="h8">h8 (opc.)</button></div>
+      <div id="sup-capturas" class="dato"></div>
+      <div class="fila"><button id="sup-calcular">Calcular superficie</button><button id="sup-limpiar">Borrar capturas</button></div>
+      <p class="ayuda"><b>Lugar</b>: dejá la herramienta donde va el objeto.</p>
+      <div class="fila"><input id="lugar-nombre" placeholder="nombre del lugar"><button id="lugar-guardar">Guardar aquí</button></div>
+      <p class="ayuda"><b>Largo de la herramienta</b>: herramienta vertical con la punta apoyada.</p>
+      <div class="fila"><input id="largo-z" type="number" step="0.1" placeholder="z de la superficie (mm)"><button id="largo-calcular">Calcular</button></div>
+    </details>
     <section class="dato" id="estado"></section>
   </aside>
 </main>

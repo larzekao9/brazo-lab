@@ -9,7 +9,7 @@ volvió a medir: lo que funcionó el 2026-10 sigue valiendo.
 ```bash
 python3 -m venv ~/.venvs/brazo-base && source ~/.venvs/brazo-base/bin/activate
 pip install -e ".[servidor,dev]"
-pytest -q                                              # 79 pruebas, sin brazo
+pytest -q                                              # 150 pruebas, sin brazo
 python herramientas/ensayar_pieza.py e2 e4 p           # las poses que mandaría, zonas y alcance: no conecta con nada
 ```
 
@@ -20,18 +20,26 @@ python herramientas/ensayar_pieza.py e2 e4 p           # las poses que mandaría
    ```bash
    python herramientas/probar_conexion.py --host 192.168.5.1
    ```
-3. **Comprobar el modelo** (solo lectura). Con el brazo en 4 o 5 posturas distintas (modo arrastre):
+3. **Comprobar el modelo** (solo lectura, no mueve el brazo: usa `PositiveKin`, un cálculo del controlador, para 7 posturas y además compara la postura actual):
    ```bash
    python herramientas/verificar_geometria.py --host 192.168.5.1
    ```
-   Si dice «COINCIDEN», el simulador, la validación por ángulos y el dibujo 3D son fieles. Si no, copiá la salida en `docs/bitacora.md`: el brazo real **no se ve
-   afectado** (usa el controlador), solo el modelo.
+   Si dice «El modelo es fiel», el simulador, la validación por ángulos y el dibujo 3D son fieles. Si no, dice si la diferencia es solo un giro de la base
+   (se corrige con `MAPA_GLB` en `simulador/cinematica.py`) o algo más; copiá la salida en `docs/bitacora.md`. El brazo real **no se ve afectado** (usa el controlador).
 4. **Primer movimiento, lento y con la mano en el botón de paro** (el brazo se enciende y habilita; usá una pieza real en e2):
    ```bash
    python herramientas/mover_pieza.py e2 e4 p --velocidad 10 --confirmo-el-brazo-real
    ```
 5. Si todo salió bien, subí la velocidad (la celda guarda la de producción: 50 %) y probá otras piezas (`n`, `r`, `q`, `k`), el cementerio (`d8 cementerio:3 q`) y la reserva.
 6. **Panel**: `python -m brazo_base.servidor` y en el panel elegí «Brazo real» (marca de confirmación y celda `celda/celda.json`).
+
+## Rutinas y scripts en el brazo real
+
+- **Rutinas** (`celda/rutinas/`, las del ajedrez ya están copiadas): una rutina solo corre en el real si ya corrió **completa en el simulador** con exactamente esos pasos
+  (queda «✓ validada»; si cambiás un paso, hay que repetirlo) y con confirmación. La velocidad no pasa de `velocidad_maxima_real` de la celda.
+- **Consola de scripts** (panel): un script solo corre en el real si **terminó sin errores en el simulador con exactamente ese código** (misma huella) y con confirmación.
+  Tiene tiempo límite y el botón Parar lo corta y frena el brazo.
+- Las dos reglas se comprueban ANTES de mover. En el simulador no hay restricciones: es para practicar.
 
 ## Qué hace el brazo en cada paso (igual que el ajedrez)
 

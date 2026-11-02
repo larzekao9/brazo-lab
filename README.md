@@ -3,7 +3,7 @@
 Plataforma abierta para **aprender, practicar y desarrollar** con el brazo Dobot CR5AS del laboratorio **sin tener el brazo delante**. Lo que
 funciona en el simulador funciona igual en el brazo real: solo cambia `destino`.
 
-> Estado: **fase 2** (librería `Brazo` + simulador + API HTTP + panel web) y la celda del laboratorio importada de la calibración real del ajedrez. Guía: `docs/laboratorio.md`. Ver `docs/bitacora.md` y el `PLAN_BRAZO_BASE.md` del repositorio del ajedrez.
+> Estado: **fase 3** (librería `Brazo` + simulador + API HTTP + panel web + rutinas, consola de scripts y asistentes de calibración) y la celda del laboratorio importada de la calibración real del ajedrez. Guía: `docs/laboratorio.md`. Ver `docs/bitacora.md` y el `PLAN_BRAZO_BASE.md` del repositorio del ajedrez.
 
 ## Capturas
 
@@ -33,6 +33,18 @@ Todo lo que se ve es el simulador funcionando con el modelo 3D del CR5 (el CAD o
 
 **La celda del laboratorio.** Con `celda/celda.json` (generada de la calibración real del ajedrez) el simulador lleva la pinza a la esquina a1 del tablero enseñado.
 
+![Rutinas: armar pasos con la pose actual, guardar y ejecutar; queda «validada»](docs/img/07-rutinas.png)
+
+**Rutinas.** Se arman moviendo el brazo y agregando pasos (pose actual, pinza, espera). Una rutina que corrió completa en el simulador queda «✓ validada» y recién entonces el brazo real la acepta.
+
+![Consola de scripts con la salida en vivo](docs/img/08-consola-scripts.png)
+
+**Consola de scripts.** Se pega un script de Python que usa `brazo`; corre en un proceso aparte con tiempo límite y el botón Parar lo corta y frena el brazo. Contra el brazo real solo corre si terminó sin errores en el simulador con exactamente ese código.
+
+![Asistentes de calibración: esquinas capturadas con el brazo y la superficie resultante](docs/img/09-calibracion.png)
+
+**Calibración.** Se capturan las esquinas llevando el brazo (3 o 4), se guarda un lugar donde está la herramienta y se mide el largo de la herramienta. La superficie nueva aparece dibujada junto al resto de la celda.
+
 ## Instalación
 
 ```bash
@@ -55,7 +67,7 @@ with Brazo() as brazo:                       # simulador por defecto
 
 ```bash
 python ejemplos/05_pick_and_place.py
-pytest            # 79 pruebas, todas sin brazo
+pytest            # 150 pruebas, todas sin brazo
 ```
 
 ## API HTTP y panel
@@ -87,7 +99,8 @@ internet, así que necesita conexión la primera vez. Ver `docs/api_http.md` y `
 | `celda/` | La celda del laboratorio, generada de la calibración real del ajedrez (`herramientas/importar_calibracion_ajedrez.py`) |
 | `herramientas/` | Scripts de laboratorio: conexión de solo lectura, verificar el modelo, ensayar y mover una pieza |
 | `brazo_base/servidor/` | API FastAPI, telemetría por WebSocket y panel web |
-| `ejemplos/` | Scripts 01 a 05 y la página 06 |
+| `brazo_base/rutinas/`, `scripts/`, `calibracion/` | Rutinas, consola de scripts (proceso aparte + `BrazoRemoto`) y asistentes de calibración |
+| `ejemplos/` | Scripts 01 a 05, la página 06 y los ejemplos 07 (rutinas) y 08 (calibrar una superficie) |
 
 ## Limitaciones conocidas del simulador
 

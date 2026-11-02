@@ -27,3 +27,11 @@ button.peligro{background:var(--peligro);color:#fff;border-color:var(--peligro);
 @media (max-width:800px){main{grid-template-columns:1fr;grid-template-rows:50vh auto;height:auto}aside{border-left:0}}
 #vistas{position:absolute;top:10px;left:12px;display:flex;gap:6px}#vistas button{background:var(--panel)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.ayuda{margin:8px 0 2px;color:var(--suave);font-size:12px}
+textarea{width:100%;font:12px/1.45 ui-monospace,monospace;color:var(--texto);background:var(--fondo);border:1px solid var(--borde);border-radius:6px;padding:8px;resize:vertical;tab-size:4}
+pre#salida{margin:6px 0 0;max-height:200px;overflow:auto;background:var(--vista);border:1px solid var(--borde);border-radius:6px;padding:8px;font:12px/1.4 ui-monospace,monospace;white-space:pre-wrap;min-height:2.4em}
+pre#salida:empty::before{content:"(la salida del script aparece acá)";color:var(--suave)}
+.pasos{margin:4px 0;padding-left:22px;font-size:12px;color:var(--suave)}.pasos li{margin:2px 0}.pasos button{padding:0 6px;margin-left:6px}
+label.compacto{display:flex;align-items:center;gap:4px;margin:0;font-size:12px}.fila label.compacto input{flex:none;width:64px}
+button.peligro-suave{border-color:var(--peligro);color:var(--peligro)}
+.ok-texto{color:var(--ok)}.mal-texto{color:var(--peligro)}

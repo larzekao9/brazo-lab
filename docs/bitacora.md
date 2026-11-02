@@ -74,3 +74,26 @@
 - `seguridad/geometria.py` (URDF) sigue validando los movimientos por ángulos que da el usuario (`mover_articulaciones`). Con el brazo real, los ángulos de `ir_a` a un punto enseñado NO pasan por esa validación.
 - Con el brazo real el panel mueve el GLB con los ángulos del controlador (como el front del ajedrez); si el modelo no coincidiera con el brazo, el dibujo se vería mal pero el brazo no se afecta.
 - Los archivos del panel se sirven con `Cache-Control: no-cache` (un navegador se quedaba con el JS viejo tras actualizar).
+
+## Fase 3 — rutinas, consola de scripts y calibración (2026-11-02)
+
+**Hecho**
+- **Rutinas** (`brazo_base/rutinas/`): portadas del ajedrez con su mismo formato (las 3 rutinas reales ya cargan desde `celda/rutinas/`), con validación de cada pose, de los saltos entre poses (150°), de los ciclos y de la huella. `Brazo.ejecutar_rutina` y `comprobar_rutina` (todo lo comprobable antes de mover): en el simulador corre y queda validada; en el real exige validación y confirmación, topa la velocidad y no mueve nada si una pose cae en una zona prohibida.
+- **Consola de scripts** (`brazo_base/scripts/`): el script corre en un proceso aparte, con tiempo límite y salida en vivo, pero NO se conecta al brazo: usa `BrazoRemoto`, que le pide todo al servidor por HTTP (la plataforma sigue siendo la única dueña del brazo, así que zonas, validaciones y el botón de parar siguen valiendo). En el real solo corre si terminó sin errores en el simulador con exactamente ese código (huella) y con confirmación.
+- **Asistentes de calibración** (`brazo_base/calibracion/`): superficie desde 3 o 4 esquinas con las validaciones del ajedrez (orientación, altura, residuos) y una más que faltaba (esquinas casi colineales sobre la mesa); largo de herramienta por apoyo o por pivote; `Brazo.guardar_lugar`.
+- **API y panel**: rutas de rutinas, scripts, calibración, `/agarrar`, `/soltar` y `/llevar-desde`; en el panel, las secciones Rutinas, Consola de scripts y Calibración. Probado de punta a punta en un navegador: se arma y guarda una rutina, se ejecuta y queda «✓ validada»; un script mueve el brazo y muestra su salida en vivo; se capturan 3 esquinas y se dibuja la superficie nueva.
+- `herramientas/verificar_geometria.py` ahora usa `PositiveKin` (no mueve el brazo) en 7 posturas, y si hay diferencia dice si es solo un giro de la base (tomado de `verificar_geometria` del ajedrez).
+- 150 pruebas sin hardware; los scripts se prueban contra un servidor HTTP real.
+
+**Encontrado y corregido**
+- **Seguridad (al agregar una ruta que ejecuta código):** el servidor aceptaba pedidos «simples» de cualquier página abierta en el navegador, que pueden saltarse el preflight de CORS. Ahora rechaza con 403 todo pedido que cambia algo y trae un `Origin` que no es de localhost (incluido `null`), y `file://` ya no puede llamar a la API (el ejemplo 06 se sirve desde `/ejemplo-06`).
+- Tras **Parar**, la tarea en curso tardaba hasta ~1 s en darse por terminada: `esperar_fin` no miraba si se canceló. Ahora termina al instante con «Cancelado por el usuario».
+- Una superficie calibrada con 3 esquinas (sin `h8`) hacía fallar el dibujo del panel: la cuarta esquina se completa como paralelogramo.
+- Una superficie con las tres esquinas casi sobre una recta pasaba la validación: ahora se rechaza.
+
+**Pendiente / decisiones**
+- La consola ejecuta código de Python con los permisos del usuario (no hay sandbox). Es una herramienta de laboratorio en el equipo del usuario; cualquier programa de ese equipo puede usar la API. Si algún día se expone en red, hace falta autenticación.
+- El editor de la consola es un `textarea` (sin resaltado ni autocompletado).
+- Las rutinas se guardan por celda (`rutinas/` junto a su archivo); con la celda de práctica, en `~/.brazo-base/rutinas`.
+- `calibrar_por_pivote` depende de la convención de Euler (`Rz·Ry·Rx`) sin verificar contra DobotStudio: `herramientas/verificar_geometria.py` la comprueba.
+- Sigue sin probarse nada de esto con el brazo real.

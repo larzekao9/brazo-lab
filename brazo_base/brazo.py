@@ -202,7 +202,7 @@ class Brazo:
     def estado(self) -> dict:
         c = self._exigir_conexion()
         try:
-            return {"destino": self.destino, "habilitado": self._habilitado, "modo": c.modo(), "pose": self.pose(), "angulos": self.angulos(),
+            return {"destino": self.destino, "habilitado": self._habilitado, "modo": c.modo(), "pose": self.pose(), "pose_brida": tuple(c.pose()), "angulos": self.angulos(),
                     "herramienta": self.herramienta.estado() if self._habilitado else {"herramienta": self.herramienta.nombre},
                     "sostiene": self._sostiene}
         except ErrorDobot as error:
