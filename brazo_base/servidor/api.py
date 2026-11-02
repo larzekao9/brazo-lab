@@ -128,7 +128,7 @@ def crear_app(servicio: ServicioBrazo | None = None) -> FastAPI:
         try:
             while True:
                 await ws.send_json(await asyncio.to_thread(svc.estado))
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(0.1)
         except (WebSocketDisconnect, RuntimeError):
             pass
 

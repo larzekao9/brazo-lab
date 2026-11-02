@@ -4,6 +4,9 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 const $ = (id) => document.getElementById(id);
 let estado = { conectado: false };
 let celda = null;
+const vis = {};  // posiciones que se dibujan: p{i}x/y/z (brazo), tx/ty/tz (punta), o:{nombre}x/y/z (objetos)
+const reducido = matchMedia("(prefers-reduced-motion: reduce)");
+let brazoMallas = null;
 
 // ---------- API ----------
 async function api(ruta, cuerpo, metodo) {
@@ -20,7 +23,8 @@ function mensaje(texto, tipo = "error") {
   p.className = tipo; p.textContent = texto;
   $("mensajes").prepend(p);
   while ($("mensajes").children.length > 6) $("mensajes").lastChild.remove();
-  if (tipo !== "error") setTimeout(() => p.remove(), 6000);
+  if (!reducido.matches) gsap.from(p, { y: -10, autoAlpha: 0, duration: 0.3, ease: "power2.out", clearProps: "transform,visibility" });
+  if (tipo !== "error") setTimeout(() => (reducido.matches ? p.remove() : gsap.to(p, { autoAlpha: 0, height: 0, margin: 0, padding: 0, duration: 0.3, onComplete: () => p.remove() })), 6000);
 }
 async function accion(ruta, cuerpo, ok, metodo) {
   try { const r = await api(ruta, cuerpo, metodo); if (ok) mensaje(ok, "ok"); return r; } catch (e) { mensaje(e.message); }
@@ -46,12 +50,12 @@ const objetosMalla = {};
 
 function ajustar() { const { clientWidth: w, clientHeight: h } = cont; renderer.setSize(w, h); camara.aspect = w / Math.max(h, 1); camara.updateProjectionMatrix(); }
 new ResizeObserver(ajustar).observe(cont); ajustar();
-(function animar() { requestAnimationFrame(animar); orbita.update(); renderer.render(escena, camara); })();
+(function animar() { requestAnimationFrame(animar); pintar(); orbita.update(); renderer.render(escena, camara); })();
 
 function vaciar(g) { while (g.children.length) { const c = g.children.pop(); c.geometry?.dispose(); c.material?.dispose?.(); } }
 
 function dibujarCelda() {
-  vaciar(grupoCelda); for (const k in objetosMalla) delete objetosMalla[k];
+  vaciar(grupoCelda); for (const k in objetosMalla) delete objetosMalla[k]; for (const k of Object.keys(vis)) if (k.startsWith("o:")) delete vis[k];
   if (!celda) return;
   const mat = (c) => new THREE.MeshStandardMaterial({ color: c });
   for (const o of celda.objetos) {
@@ -74,17 +78,49 @@ function zona(x, y, r) {
   const m = new THREE.Mesh(new THREE.CircleGeometry(r, 40), new THREE.MeshBasicMaterial({ color: 0xff0000, transparent: true, opacity: 0.18, side: THREE.DoubleSide }));
   m.position.set(x, y, 1); grupoCelda.add(m);
 }
+// Movimiento suave: la telemetría llega a 10 Hz y GSAP interpola entre muestras (con prefers-reduced-motion se salta directo).
+function suavizar(objetivo) {
+  const nuevo = Object.keys(objetivo).some((k) => !(k in vis));
+  if (nuevo || reducido.matches) { Object.assign(vis, objetivo); return; }
+  gsap.to(vis, { ...objetivo, duration: 0.13, ease: "none", overwrite: "auto" });
+}
 function dibujarBrazo(puntos, tcp) {
-  vaciar(grupoBrazo);
   if (!puntos?.length) return;
-  const v = puntos.map((p) => new THREE.Vector3(...p));
-  grupoBrazo.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(v), new THREE.LineBasicMaterial({ color: 0xf59e0b })));
-  for (const p of v) { const b = new THREE.Mesh(new THREE.SphereGeometry(14), new THREE.MeshStandardMaterial({ color: 0x334155 })); b.position.copy(p); grupoBrazo.add(b); }
-  const punta = new THREE.Mesh(new THREE.SphereGeometry(10), new THREE.MeshBasicMaterial({ color: 0xff2d55 })); punta.position.set(tcp[0], tcp[1], tcp[2]); grupoBrazo.add(punta);
+  const objetivo = { tx: tcp[0], ty: tcp[1], tz: tcp[2] };
+  puntos.forEach((p, i) => { objetivo[`p${i}x`] = p[0]; objetivo[`p${i}y`] = p[1]; objetivo[`p${i}z`] = p[2]; });
+  if (!brazoMallas || brazoMallas.n !== puntos.length) {
+    vaciar(grupoBrazo);
+    const linea = new THREE.Line(new THREE.BufferGeometry().setFromPoints(puntos.map(() => new THREE.Vector3())), new THREE.LineBasicMaterial({ color: 0xf59e0b }));
+    const esferas = puntos.map(() => { const m = new THREE.Mesh(new THREE.SphereGeometry(14), new THREE.MeshStandardMaterial({ color: 0x334155 })); grupoBrazo.add(m); return m; });
+    const punta = new THREE.Mesh(new THREE.SphereGeometry(10), new THREE.MeshBasicMaterial({ color: 0xff2d55 }));
+    linea.frustumCulled = false;
+    grupoBrazo.add(linea, punta);
+    brazoMallas = { n: puntos.length, linea, esferas, punta };
+  }
+  suavizar(objetivo);
 }
 function moverObjetos(posiciones) {
-  for (const [n, p] of Object.entries(posiciones || {})) { const m = objetosMalla[n]; if (m) m.position.set(p[0], p[1], p[2] + m.userData.alto / 2); }
+  const objetivo = {};
+  for (const [n, p] of Object.entries(posiciones || {})) { const m = objetosMalla[n]; if (m) { objetivo[`o:${n}x`] = p[0]; objetivo[`o:${n}y`] = p[1]; objetivo[`o:${n}z`] = p[2] + m.userData.alto / 2; } }
+  suavizar(objetivo);
 }
+function pintar() {
+  if (brazoMallas) {
+    const { n, linea, esferas, punta } = brazoMallas, pos = linea.geometry.attributes.position;
+    for (let i = 0; i < n; i++) { const x = vis[`p${i}x`], y = vis[`p${i}y`], z = vis[`p${i}z`]; esferas[i].position.set(x, y, z); pos.setXYZ(i, x, y, z); }
+    pos.needsUpdate = true; punta.position.set(vis.tx, vis.ty, vis.tz);
+  }
+  for (const [n, m] of Object.entries(objetosMalla)) if (`o:${n}x` in vis) m.position.set(vis[`o:${n}x`], vis[`o:${n}y`], vis[`o:${n}z`]);
+}
+
+// Vistas de cámara con transición
+const VISTAS = { "3/4": [900, 400, 800], arriba: [0, -400, 1500], lateral: [1300, -400, 250], frente: [0, 700, 350] };
+function irAVista(nombre) {
+  const [x, y, z] = VISTAS[nombre];
+  if (reducido.matches) { camara.position.set(x, y, z); return; }
+  gsap.to(camara.position, { x, y, z, duration: 0.8, ease: "power2.inOut", overwrite: true });
+}
+document.querySelectorAll("[data-vista]").forEach((b) => (b.onclick = () => irAVista(b.dataset.vista)));
 
 // ---------- telemetría ----------
 function conectarWS() {
@@ -100,8 +136,10 @@ async function recibir(e) {
   teniaConexion = e.conectado;
   const ins = $("insignia");
   ins.className = "insignia " + (e.conectado && e.habilitado ? "ok" : "");
+  const antes = ins.textContent;
   ins.textContent = !e.conectado ? "sin conexión" : `${e.destino} · ${e.habilitado ? "habilitado" : "sin habilitar"} · modo ${e.modo}`;
   if ([9, 11].includes(e.modo)) ins.className = "insignia mal";
+  if (ins.textContent !== antes && !reducido.matches) gsap.fromTo(ins, { scale: 1.12 }, { scale: 1, duration: 0.35, ease: "back.out(3)" });
   if (e.conectado && e.pose) {
     dibujarBrazo(e.brazo_puntos, e.pose);
     moverObjetos(e.objetos);

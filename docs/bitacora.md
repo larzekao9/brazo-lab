@@ -37,3 +37,10 @@
 - El panel no es React (el plan lo sugería): se eligió HTML + módulos ES para que un estudiante lo pueda leer y cambiar sin `npm`. Si se quiere React, la API no cambia.
 - Falta en el panel: mover por articulaciones, rutinas y la consola de scripts (fase 3), y los modelos 3D reales del CR5 (hoy es un esqueleto de líneas y esferas).
 - Los puntos guardados con el panel quedan en memoria; solo se escriben a disco con `guardar` y una celda con archivo propio.
+
+### Animaciones del panel (2026-11-02)
+- La telemetría sube a 10 Hz y el panel interpola entre muestras con GSAP 3.12.5 (cdnjs): el brazo y los objetos se mueven sin saltos. Las mallas se crean una vez y solo se actualizan sus posiciones.
+- Botones de vista de cámara (3/4, arriba, lateral, frente) con transición; mensajes que entran y salen con fundido; la insignia de estado hace un pulso al cambiar.
+- Todo respeta `prefers-reduced-motion` (salta directo, sin transiciones).
+- Buenas prácticas tomadas de los skills de GSAP del repo Neverita (`quickTo`/`overwrite`, `autoAlpha`, `matchMedia`). De ese repo no se copió código al proyecto.
+- Bug encontrado probando en el navegador: dos `gsap.to` con `overwrite: true` sobre el mismo objeto se cancelan entre sí; se usa `overwrite: "auto"`.

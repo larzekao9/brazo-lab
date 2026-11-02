@@ -37,8 +37,8 @@ pip install -e ".[servidor]"
 python -m brazo_base.servidor      # http://127.0.0.1:8000 (panel en /, API en /docs)
 ```
 
-El panel (3D, mover a mano, herramienta, puntos, llevar un objeto, practicar fallos) es HTML + JS sin paso de compilación; carga Three.js desde
-unpkg, así que necesita internet la primera vez. Ver `docs/api_http.md` y `ejemplos/06_api_http_desde_javascript.html`.
+El panel (3D, mover a mano, herramienta, puntos, llevar un objeto, practicar fallos) es HTML + JS sin paso de compilación; carga Three.js (unpkg) y GSAP (cdnjs) desde
+internet, así que necesita conexión la primera vez. Ver `docs/api_http.md` y `ejemplos/06_api_http_desde_javascript.html`.
 
 ## Reglas que no se rompen
 

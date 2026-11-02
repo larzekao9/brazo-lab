@@ -24,3 +24,5 @@ button.peligro{background:var(--peligro);color:#fff;border-color:var(--peligro);
 #mensajes p{margin:4px 0;padding:6px 8px;border-radius:6px;border:1px solid var(--borde);font-size:13px}
 #mensajes p.error{border-color:var(--peligro);color:var(--peligro)}#mensajes p.ok{border-color:var(--ok);color:var(--ok)}
 @media (max-width:800px){main{grid-template-columns:1fr;grid-template-rows:50vh auto;height:auto}aside{border-left:0}}
+#vistas{position:absolute;top:10px;left:12px;display:flex;gap:6px}#vistas button{background:var(--panel)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
