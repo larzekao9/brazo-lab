@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>brazo-base · Panel</title>
+<link rel="stylesheet" href="/panel/panel.css">
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
+</head>
+<body>
+<header>
+  <h1>brazo-base</h1>
+  <span id="insignia" class="insignia">sin conexión</span>
+  <button id="parar" class="peligro">PARAR</button>
+</header>
+<main>
+  <section id="vista"><div id="lienzo"></div><div id="leyenda">Arrastrá para girar · rueda para acercar</div></section>
+  <aside>
+    <details open><summary>Conexión</summary>
+      <label>Destino <select id="destino"><option value="simulador">Simulador</option><option value="real">Brazo real</option></select></label>
+      <label id="fila-real" hidden><input type="checkbox" id="confirma-real"> Entiendo que el brazo real se va a mover</label>
+      <label>Celda (solo real) <input id="celda" placeholder="celda/celda.json"></label>
+      <div class="fila"><button id="conectar">Conectar</button><button id="habilitar">Habilitar</button><button id="desconectar">Desconectar</button></div>
+    </details>
+    <details open><summary>Mover a mano (mm)</summary>
+      <label>Paso <select id="paso"><option>5</option><option selected>10</option><option>50</option></select></label>
+      <div class="cruz">
+        <button data-d="y,-1">Y −</button><button data-d="y,1">Y +</button>
+        <button data-d="x,-1">X −</button><button data-d="x,1">X +</button>
+        <button data-d="z,-1">Z −</button><button data-d="z,1">Z +</button>
+      </div>
+      <div class="fila"><input id="ir-x" type="number" placeholder="x"><input id="ir-y" type="number" placeholder="y"><input id="ir-z" type="number" placeholder="z"><button id="ir">Ir</button></div>
+    </details>
+    <details open><summary>Herramienta</summary>
+      <div class="fila"><button data-h="abrir">Abrir</button><button data-h="cerrar">Cerrar</button></div>
+      <div class="fila"><input id="apertura" type="range" min="0" max="1" step="0.05" value="0.5"><button data-h="abrir_a">Abrir a</button></div>
+      <div id="herr-estado" class="dato"></div>
+    </details>
+    <details open><summary>Puntos con nombre</summary>
+      <div class="fila"><select id="puntos"></select><button id="ir-punto">Ir</button></div>
+      <div class="fila"><input id="nuevo-punto" placeholder="nombre"><button id="guardar-punto">Guardar pose actual</button></div>
+    </details>
+    <details open><summary>Llevar un objeto</summary>
+      <div class="fila"><select id="objeto"></select><span>→</span><input id="lugar" list="lugares" placeholder="bandeja o tablero:e4"><datalist id="lugares"></datalist></div>
+      <div class="fila"><button id="ensayo">Ensayar</button><button id="llevar">Llevar</button></div>
+    </details>
+    <details><summary>Practicar fallos (simulador)</summary>
+      <div class="fila"><button data-f="alarma">Alarma</button><button data-f="colision">Colisión</button><button data-f="pieza_cae">Se cae la pieza</button><button id="limpiar">Limpiar error</button></div>
+    </details>
+    <section class="dato" id="estado"></section>
+    <section id="mensajes"></section>
+  </aside>
+</main>
+<script type="module" src="/panel/panel.js"></script>
+</body>
+</html>

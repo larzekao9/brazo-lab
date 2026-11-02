@@ -15,7 +15,7 @@ from pathlib import Path
 
 from brazo_base.celda import Celda, cargar_celda, celda_demo
 from brazo_base.conexion.cliente_dobot import MODO_LIBRE, ClienteDobot, ErrorDobot
-from brazo_base.errores import ErrorBrazo, ErrorDelControlador, NoAgarro, NoHabilitado, SinConexion
+from brazo_base.errores import ErrorBrazo, ErrorDelControlador, NoAgarro, NoHabilitado, RecorridoProhibido, SinConexion
 from brazo_base.herramientas import herramienta_desde_config
 from brazo_base.seguridad import trayectos, validador
 from brazo_base.seguridad.validador import Tramo
@@ -309,19 +309,56 @@ class Brazo:
         self._sostiene = None
         self._ir(c, puntos[4], rz)
 
-    def llevar(self, objeto: str, lugar: str) -> None:
-        """`agarrar` y `soltar_en`. Antes de mover nada comprueba que el recorrido completo (también el de soltar) es válido."""
-        self._listo()
+    def _tramos_llevar(self, objeto: str, lugar: str) -> list[Tramo]:
+        """Todos los tramos de punta de `llevar` (agarrar + trasladar + soltar), sin mover nada."""
         _, tramos_agarrar = self._plan_agarrar(objeto)
         o = self.celda.objetos[objeto]
         lx, ly, lz = self.celda.posicion_de(lugar, {n: p for n, p in self._posiciones.items() if n != objeto})
         ox, oy, _ = self._posiciones[objeto]
-        z_viaje = trayectos.altura_de_traslado(self.celda, trayectos.alto_maximo_de_objetos(self.celda, excepto=objeto), o.altura_de_agarre)
-        z_ini = max(self.pose()[2], trayectos.altura_de_traslado(self.celda, trayectos.alto_maximo_de_objetos(self.celda, excepto=objeto)))
+        otros = trayectos.alto_maximo_de_objetos(self.celda, excepto=objeto)
+        z_viaje = trayectos.altura_de_traslado(self.celda, otros, o.altura_de_agarre)
+        z_ini = max(self.pose()[2], trayectos.altura_de_traslado(self.celda, otros))
         z_suelta = lz + o.altura_de_agarre + MARGEN_SOLTAR_MM
-        validador.exigir_tramos(tramos_agarrar + [Tramo((ox, oy, z_ini), (ox, oy, z_viaje), "llevar"), Tramo((ox, oy, z_viaje), (lx, ly, z_viaje), "llevar"), Tramo((lx, ly, z_viaje), (lx, ly, z_suelta), "llevar")], self.celda)
+        return tramos_agarrar + [Tramo((ox, oy, z_ini), (ox, oy, z_viaje), "llevar"), Tramo((ox, oy, z_viaje), (lx, ly, z_viaje), "llevar"), Tramo((lx, ly, z_viaje), (lx, ly, z_suelta), "llevar")]
+
+    def llevar(self, objeto: str, lugar: str) -> None:
+        """`agarrar` y `soltar_en`. Antes de mover nada comprueba que el recorrido completo (también el de soltar) es válido."""
+        self._listo()
+        validador.exigir_tramos(self._tramos_llevar(objeto, lugar), self.celda)
         self.agarrar(objeto)
         self.soltar_en(lugar)
+
+    def ensayo(self, tipo: str, **datos) -> dict:
+        """Lo que haría `mover_a` / `llevar` / `mover_articulaciones` SIN mover nada: `{"ok", "problemas", "tramos"}`."""
+        self._exigir_conexion()
+        tramos: list[Tramo] = []
+        if tipo == "mover":
+            ax, ay, az, *_ = self.pose()
+            destino = tuple(datos.get(k, a) if datos.get(k) is not None else a for k, a in zip("xyz", (ax, ay, az)))
+            tramos = [Tramo((ax, ay, az), destino, "mover_a")]
+        elif tipo == "llevar":
+            tramos = self._tramos_llevar(datos["objeto"], datos["lugar"])
+        elif tipo == "articulaciones":
+            try:
+                validador.exigir_articulaciones(list(self.angulos()), list(datos["angulos"]), self.celda)
+                problemas: list[str] = []
+            except RecorridoProhibido as error:
+                problemas = error.problemas
+            return {"ok": not problemas, "problemas": problemas, "tramos": []}
+        else:
+            raise ErrorBrazo(f"Ensayo desconocido «{tipo}»: usá mover, llevar o articulaciones")
+        problemas = validador.problemas_de_tramos(tramos, self.celda)
+        return {"ok": not problemas, "problemas": problemas, "tramos": [{"desde": t.desde, "hasta": t.hasta} for t in tramos]}
+
+    @property
+    def sostiene(self) -> str | None:
+        return self._sostiene
+
+    def posiciones_objetos(self) -> dict[str, tuple[float, float, float]]:
+        """Dónde está cada objeto ahora (en el simulador, lo que dice el mundo; en el real, lo que la celda supone)."""
+        if self.simulador is not None:
+            return {n: tuple(p) for n, p in self.simulador.mundo.posiciones().items()}
+        return dict(self._posiciones)
 
     def ejecutar_rutina(self, nombre: str) -> None:
         raise NotImplementedError("Las rutinas llegan en la fase 3 (ver docs/bitacora.md)")

@@ -22,3 +22,18 @@
 - Los puntos de esquina del ajedrez (a1, h1, a8, h8) son poses de la brida con la pinza ~3° inclinada; no se copiaron.
 - El simulador no valida `MovJ` por ángulos contra las mallas ni con la cinemática real del CR5.
 - Pendientes del laboratorio: ver sección 9 de `PLAN_BRAZO_BASE.md`.
+
+## Fase 2 — API HTTP y panel (2026-11-02)
+
+**Hecho**
+- `brazo_base/servidor/`: FastAPI con todas las rutas de la sección 7 del plan salvo rutinas y scripts; una tarea a la vez (hilo), 202 y seguimiento en `/estado`; `parar` cancela la tarea.
+- `Brazo.ensayo()` (y `/ensayo`) devuelve el plan y los problemas sin mover nada; `/mover` y `/llevar` validan de forma síncrona antes de responder 202.
+- Telemetría por WebSocket con los puntos para dibujar el brazo (modelo esquemático en el simulador, URDF en el real).
+- Panel web sin compilar (HTML + Three.js): conexión, vista 3D de la celda, mover a mano, herramienta, puntos, llevar con ensayo, fallos. Comprobado en un navegador contra el simulador.
+- Seguridad: solo `127.0.0.1`, CORS limitado a orígenes locales, `confirmar_real` obligatorio para el real.
+- Ejemplo 06 (página que mueve el brazo por HTTP) y `docs/api_http.md`. 60 pruebas sin hardware.
+
+**Pendiente / decisiones**
+- El panel no es React (el plan lo sugería): se eligió HTML + módulos ES para que un estudiante lo pueda leer y cambiar sin `npm`. Si se quiere React, la API no cambia.
+- Falta en el panel: mover por articulaciones, rutinas y la consola de scripts (fase 3), y los modelos 3D reales del CR5 (hoy es un esqueleto de líneas y esferas).
+- Los puntos guardados con el panel quedan en memoria; solo se escriben a disco con `guardar` y una celda con archivo propio.

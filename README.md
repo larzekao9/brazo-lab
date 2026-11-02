@@ -3,7 +3,7 @@
 Plataforma abierta para **aprender, practicar y desarrollar** con el brazo Dobot CR5AS del laboratorio **sin tener el brazo delante**. Lo que
 funciona en el simulador funciona igual en el brazo real: solo cambia `destino`.
 
-> Estado: **fase 1** (núcleo + simulador + librería `Brazo`). Ver `docs/bitacora.md` y `../Ajedrez/PLAN_BRAZO_BASE.md`.
+> Estado: **fase 2** (librería `Brazo` + simulador + API HTTP + panel web). Ver `docs/bitacora.md` y `../Ajedrez/PLAN_BRAZO_BASE.md`.
 
 ## Instalación
 
@@ -30,6 +30,16 @@ python ejemplos/05_pick_and_place.py
 pytest            # todas las pruebas corren sin brazo
 ```
 
+## API HTTP y panel
+
+```bash
+pip install -e ".[servidor]"
+python -m brazo_base.servidor      # http://127.0.0.1:8000 (panel en /, API en /docs)
+```
+
+El panel (3D, mover a mano, herramienta, puntos, llevar un objeto, practicar fallos) es HTML + JS sin paso de compilación; carga Three.js desde
+unpkg, así que necesita internet la primera vez. Ver `docs/api_http.md` y `ejemplos/06_api_http_desde_javascript.html`.
+
 ## Reglas que no se rompen
 
 - **El simulador es el destino por defecto.** El brazo real solo se toca con `Brazo(destino="real", celda="celda/celda.json")`.
@@ -47,7 +57,8 @@ pytest            # todas las pruebas corren sin brazo
 | `brazo_base/herramientas/` | Interfaz `Herramienta`, pinza DH, salida digital, ninguna |
 | `brazo_base/simulador/` | Controlador virtual (protocolo V4, pinza Modbus, fallos provocables) |
 | `celda/` | La configuración de ESTA celda del laboratorio (a completar en el laboratorio) |
-| `ejemplos/` | Scripts 01 a 05 |
+| `brazo_base/servidor/` | API FastAPI, telemetría por WebSocket y panel web |
+| `ejemplos/` | Scripts 01 a 05 y la página 06 |
 
 ## Limitaciones conocidas del simulador
 
