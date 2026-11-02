@@ -9,7 +9,7 @@ volvió a medir: lo que funcionó el 2026-10 sigue valiendo.
 ```bash
 python3 -m venv ~/.venvs/brazo-base && source ~/.venvs/brazo-base/bin/activate
 pip install -e ".[servidor,dev]"
-pytest -q                                              # 150 pruebas, sin brazo
+pytest -q                                              # 147 pruebas, sin brazo
 python herramientas/ensayar_pieza.py e2 e4 p           # las poses que mandaría, zonas y alcance: no conecta con nada
 ```
 

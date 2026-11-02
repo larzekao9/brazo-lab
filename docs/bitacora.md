@@ -83,7 +83,7 @@
 - **Asistentes de calibración** (`brazo_base/calibracion/`): superficie desde 3 o 4 esquinas con las validaciones del ajedrez (orientación, altura, residuos) y una más que faltaba (esquinas casi colineales sobre la mesa); largo de herramienta por apoyo o por pivote; `Brazo.guardar_lugar`.
 - **API y panel**: rutas de rutinas, scripts, calibración, `/agarrar`, `/soltar` y `/llevar-desde`; en el panel, las secciones Rutinas, Consola de scripts y Calibración. Probado de punta a punta en un navegador: se arma y guarda una rutina, se ejecuta y queda «✓ validada»; un script mueve el brazo y muestra su salida en vivo; se capturan 3 esquinas y se dibuja la superficie nueva.
 - `herramientas/verificar_geometria.py` ahora usa `PositiveKin` (no mueve el brazo) en 7 posturas, y si hay diferencia dice si es solo un giro de la base (tomado de `verificar_geometria` del ajedrez).
-- 150 pruebas sin hardware; los scripts se prueban contra un servidor HTTP real.
+- 147 pruebas sin hardware; los scripts se prueban contra un servidor HTTP real.
 
 **Encontrado y corregido**
 - **Seguridad (al agregar una ruta que ejecuta código):** el servidor aceptaba pedidos «simples» de cualquier página abierta en el navegador, que pueden saltarse el preflight de CORS. Ahora rechaza con 403 todo pedido que cambia algo y trae un `Origin` que no es de localhost (incluido `null`), y `file://` ya no puede llamar a la API (el ejemplo 06 se sirve desde `/ejemplo-06`).

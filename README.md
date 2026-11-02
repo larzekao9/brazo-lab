@@ -67,7 +67,7 @@ with Brazo() as brazo:                       # simulador por defecto
 
 ```bash
 python ejemplos/05_pick_and_place.py
-pytest            # 150 pruebas, todas sin brazo
+pytest            # 147 pruebas, todas sin brazo
 ```
 
 ## API HTTP y panel
